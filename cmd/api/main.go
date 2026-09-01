@@ -12,6 +12,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
+type application struct {
+	cfg *config
+}
+
 type config struct {
 	port int
 }
@@ -24,17 +28,24 @@ func main() {
 		log.Fatal(err)
 	}
 
+	app := &application{
+		cfg: cfg,
+	}
+
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", app.healthHandler)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
-		Handler:      mux,
+		Handler:      app.recoverPanic(mux),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  time.Minute,
 	}
 
-	log.Fatal(srv.ListenAndServe())
+	log.Printf("starting server on port: %d", cfg.port)
+	err = srv.ListenAndServe()
+	log.Fatal(err)
 }
 
 func loadConfig() (*config, error) {
