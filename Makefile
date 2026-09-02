@@ -7,7 +7,22 @@ help:
 ## run/api: run the cmd/api application
 .PHONY: run/api
 run/api:
-	go run ./cmd/api
+	dotenvx run -- go run ./cmd/api
+
+## db/psql: connect to the database using psql
+.PHONY: db/psql
+db/psql:
+	dotenvx run -- sh -c 'psql $${POSTGRES_URL}'
+
+## db/migrate/create name=$1: create a new database migration
+.PHONY: db/migrate/create
+db/migrate/create:
+	migrate create -ext=.sql -dir=./migrations -seq ${name}
+
+## db/migrate/up: apply all up database migrations
+.PHONY: db/migrate/up
+db/migrate/up:
+	dotenvx run -- sh -c 'migrate -path=./migrations -database=$${POSTGRES_URL} up'
 
 ## audit: tidy and vendor dependencies and format, vet and test all code
 .PHONY: audit

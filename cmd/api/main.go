@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/joho/godotenv"
 	"github.com/sharasha07/royale-tourneys/internal/data"
 )
 
@@ -26,8 +25,6 @@ type application struct {
 }
 
 func main() {
-	godotenv.Load()
-
 	cfg, err := loadConfig()
 	if err != nil {
 		log.Fatal(err)
