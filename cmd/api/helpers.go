@@ -7,14 +7,14 @@ import (
 
 type envelope map[string]any
 
-func (app *application) readJSON(r *http.Request, dst any) error {
+func readJSON(r *http.Request, dst any) error {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 
 	return dec.Decode(dst)
 }
 
-func (app *application) writeJSON(w http.ResponseWriter, status int, env envelope) error {
+func writeJSON(w http.ResponseWriter, status int, env envelope) error {
 	data, err := json.MarshalIndent(env, "", "\t")
 	if err != nil {
 		return err

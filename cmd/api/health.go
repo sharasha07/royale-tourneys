@@ -2,9 +2,10 @@ package main
 
 import "net/http"
 
-func (app *application) healthHandler(w http.ResponseWriter, r *http.Request) {
-	err := app.writeJSON(w, http.StatusOK, envelope{"status": "available"})
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	err := writeJSON(w, http.StatusOK, envelope{"status": "available"})
 	if err != nil {
-		app.serverErrorResponse(w, err)
+		serverErrorResponse(w, err)
+		return
 	}
 }
