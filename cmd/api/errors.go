@@ -18,3 +18,12 @@ func serverErrorResponse(w http.ResponseWriter, err error) {
 	message := "internal server error"
 	sendError(w, http.StatusInternalServerError, message)
 }
+
+func badRequestResponse(w http.ResponseWriter) {
+	message := "bad request"
+	sendError(w, http.StatusBadRequest, message)
+}
+
+func failedValidationResponse(w http.ResponseWriter, errors map[string]string) {
+	sendError(w, http.StatusUnprocessableEntity, errors)
+}

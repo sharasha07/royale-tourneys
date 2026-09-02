@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -9,11 +10,19 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/sharasha07/royale-tourneys/internal/data"
 )
 
 type config struct {
-	port int
+	port        int
+	postgresURL string
+}
+
+type application struct {
+	cfg   config
+	model data.DBModel
 }
 
 func main() {
@@ -24,8 +33,29 @@ func main() {
 		log.Fatal(err)
 	}
 
+	pool, err := pgxpool.New(context.Background(), cfg.postgresURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer pool.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = pool.Ping(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("connected to the database")
+
+	app := &application{
+		cfg:   cfg,
+		model: data.NewDBModel(pool),
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", healthHandler)
+	mux.HandleFunc("POST /v1/users", app.createUserHandler)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
@@ -50,6 +80,12 @@ func loadConfig() (config, error) {
 		cfg.port = portNumber
 	} else {
 		return config{}, errors.New("PORT must be provided")
+	}
+
+	if postgresURL, ok := os.LookupEnv("POSTGRES_URL"); !ok {
+		return config{}, errors.New("POSTGRES_URL must be provided")
+	} else {
+		cfg.postgresURL = postgresURL
 	}
 
 	return cfg, nil
