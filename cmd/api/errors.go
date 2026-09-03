@@ -32,3 +32,8 @@ func notFoundResponse(w http.ResponseWriter) {
 func failedValidationResponse(w http.ResponseWriter, errors map[string]string) {
 	sendError(w, http.StatusUnprocessableEntity, errors)
 }
+
+func editConflictResponse(w http.ResponseWriter) {
+	message := "edit conflict"
+	sendError(w, http.StatusConflict, message)
+}

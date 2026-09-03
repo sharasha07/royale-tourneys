@@ -3,8 +3,10 @@ package data
 import (
 	"context"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/sharasha07/royale-tourneys/internal/validator"
 )
 
 type User struct {
@@ -15,6 +17,19 @@ type User struct {
 	ProfilePicture *string   `json:"profile_picture"`
 	CreatedAt      time.Time `json:"created_at"`
 	Version        int       `json:"version"`
+}
+
+func ValidateUser(v *validator.Validator, username, password *string) {
+	if username != nil {
+		v.Check(*username != "", "username", "must be provided")
+		v.Check(utf8.RuneCountInString(*username) <= 10, "username", "must not have more than 10 characters")
+	}
+
+	if password != nil {
+		v.Check(*password != "", "password", "must be provided")
+		v.Check(utf8.RuneCountInString(*password) > 5, "password", "must be more than 5 characters")
+		v.Check(utf8.RuneCountInString(*password) <= 15, "password", "must not have more than 15 characters")
+	}
 }
 
 func (m DBModel) CreateUser(username string, passwordHash []byte) (User, error) {
@@ -71,6 +86,25 @@ func (m DBModel) GetUserByID(id int) (User, error) {
 	}
 
 	return u, nil
+}
+
+func (m DBModel) UpdateUser(user *User) error {
+	query := `
+		UPDATE users
+		SET username = $1, password_hash = $2, game_tag = $3, version = version + 1
+		WHERE id = $4 and version = $5
+		RETURNING version`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	args := []any{user.Username, user.PasswordHash, user.GameTag, user.ID, user.Version}
+
+	err := m.pool.QueryRow(ctx, query, args...).Scan(
+		&user.Version,
+	)
+
+	return err
 }
 
 func (m DBModel) DeleteUser(id int) error {
