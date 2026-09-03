@@ -86,3 +86,28 @@ func (app *application) showUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 }
+
+func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil || id <= 0 {
+		badRequestResponse(w)
+		return
+	}
+
+	err = app.model.DeleteUser(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			notFoundResponse(w)
+		default:
+			serverErrorResponse(w, err)
+		}
+		return
+	}
+
+	err = writeJSON(w, http.StatusNoContent, nil)
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+}

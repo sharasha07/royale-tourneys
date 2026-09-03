@@ -55,6 +55,7 @@ func main() {
 
 	mux.HandleFunc("POST /v1/users", app.createUserHandler)
 	mux.HandleFunc("GET /v1/users/{id}", app.showUserHandler)
+	mux.HandleFunc("DELETE /v1/users/{id}", app.deleteUserHandler)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),

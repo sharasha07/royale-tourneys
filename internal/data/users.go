@@ -3,6 +3,8 @@ package data
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type User struct {
@@ -69,4 +71,20 @@ func (m DBModel) GetUserByID(id int) (User, error) {
 	}
 
 	return u, nil
+}
+
+func (m DBModel) DeleteUser(id int) error {
+	query := `
+		DELETE FROM users
+		WHERE id = $1`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	tag, err := m.pool.Exec(ctx, query, id)
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return err
 }
