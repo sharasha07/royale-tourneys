@@ -43,3 +43,30 @@ func (m DBModel) CreateUser(username string, passwordHash []byte) (User, error) 
 
 	return u, nil
 }
+
+func (m DBModel) GetUserByID(id int) (User, error) {
+	query := `
+		SELECT id, username, password_hash, game_tag, profile_picture, created_at, version
+		FROM users
+		WHERE id = $1`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var u User
+	err := m.pool.QueryRow(ctx, query, id).Scan(
+		&u.ID,
+		&u.Username,
+		&u.PasswordHash,
+		&u.GameTag,
+		&u.ProfilePicture,
+		&u.CreatedAt,
+		&u.Version,
+	)
+
+	if err != nil {
+		return User{}, err
+	}
+
+	return u, nil
+}

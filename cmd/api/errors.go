@@ -24,6 +24,11 @@ func badRequestResponse(w http.ResponseWriter) {
 	sendError(w, http.StatusBadRequest, message)
 }
 
+func notFoundResponse(w http.ResponseWriter) {
+	message := "resource not found"
+	sendError(w, http.StatusNotFound, message)
+}
+
 func failedValidationResponse(w http.ResponseWriter, errors map[string]string) {
 	sendError(w, http.StatusUnprocessableEntity, errors)
 }

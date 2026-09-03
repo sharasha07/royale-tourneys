@@ -52,7 +52,9 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", healthHandler)
+
 	mux.HandleFunc("POST /v1/users", app.createUserHandler)
+	mux.HandleFunc("GET /v1/users/{id}", app.showUserHandler)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),

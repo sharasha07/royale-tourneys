@@ -3,9 +3,11 @@ package main
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/alexedwards/argon2id"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/sharasha07/royale-tourneys/internal/validator"
 )
@@ -54,6 +56,31 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	err = writeJSON(w, http.StatusCreated, envelope{"user": user})
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+}
+
+func (app *application) showUserHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil || id <= 0 {
+		badRequestResponse(w)
+		return
+	}
+
+	user, err := app.model.GetUserByID(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			notFoundResponse(w)
+		default:
+			serverErrorResponse(w, err)
+		}
+		return
+	}
+
+	err = writeJSON(w, http.StatusOK, envelope{"user": user})
 	if err != nil {
 		serverErrorResponse(w, err)
 		return
