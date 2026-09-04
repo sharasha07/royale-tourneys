@@ -180,7 +180,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	v := validator.New()
-	err = data.ValidateGameTag(v, input.GameTag, app.cfg.clashAPIToken)
+	err = data.ValidateGameTag(v, input.GameTag, app.cfg.clashAPIToken, app.client)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return

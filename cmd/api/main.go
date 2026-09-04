@@ -21,8 +21,9 @@ type config struct {
 }
 
 type application struct {
-	cfg   config
-	model data.DBModel
+	cfg    config
+	model  data.DBModel
+	client *http.Client
 }
 
 func main() {
@@ -47,8 +48,9 @@ func main() {
 	log.Println("connected to the database")
 
 	app := &application{
-		cfg:   cfg,
-		model: data.NewDBModel(pool),
+		cfg:    cfg,
+		model:  data.NewDBModel(pool),
+		client: &http.Client{Timeout: 10 * time.Second},
 	}
 
 	mux := http.NewServeMux()

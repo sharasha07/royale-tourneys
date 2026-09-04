@@ -35,9 +35,10 @@ func ValidateUser(v *validator.Validator, username, password *string) {
 	}
 }
 
-func ValidateGameTag(v *validator.Validator, gameTag, token string) error {
-	client := http.Client{
-		Timeout: 10 * time.Second,
+func ValidateGameTag(v *validator.Validator, gameTag, token string, client *http.Client) error {
+	if gameTag == "" {
+		v.Add("game_tag", "must be provided")
+		return nil
 	}
 
 	endpoint := fmt.Sprintf("https://api.clashroyale.com/v1/players/%s", url.PathEscape(gameTag))
@@ -52,14 +53,19 @@ func ValidateGameTag(v *validator.Validator, gameTag, token string) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+
+	case http.StatusNotFound:
+		v.Add("game_tag", "invalid")
+		return nil
+
+	default:
 		return fmt.Errorf("error while making request to clash API with status code: %d", resp.StatusCode)
 	}
-
-	v.Check(resp.StatusCode != http.StatusNotFound, "game_tag", "invalid")
-
-	return nil
 }
 
 func (m DBModel) CreateUser(username string, passwordHash []byte) (User, error) {
