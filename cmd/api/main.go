@@ -15,8 +15,9 @@ import (
 )
 
 type config struct {
-	port        int
-	postgresURL string
+	port          int
+	postgresURL   string
+	clashAPIToken string
 }
 
 type application struct {
@@ -56,6 +57,7 @@ func main() {
 	mux.HandleFunc("POST /v1/users", app.createUserHandler)
 	mux.HandleFunc("GET /v1/users/{id}", app.showUserHandler)
 	mux.HandleFunc("PATCH /v1/users/{id}", app.updateUserHandler)
+	mux.HandleFunc("UPDATE /v1/users/{id}/tag", app.updateGameTagHandler)
 	mux.HandleFunc("DELETE /v1/users/{id}", app.deleteUserHandler)
 
 	srv := &http.Server{
@@ -87,6 +89,12 @@ func loadConfig() (config, error) {
 		return config{}, errors.New("POSTGRES_URL must be provided")
 	} else {
 		cfg.postgresURL = postgresURL
+	}
+
+	if token, ok := os.LookupEnv("CLASH_API_TOKEN"); !ok {
+		return config{}, errors.New("CLASH_API_TOKEN must be provided")
+	} else {
+		cfg.clashAPIToken = token
 	}
 
 	return cfg, nil

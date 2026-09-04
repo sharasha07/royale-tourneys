@@ -151,6 +151,66 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil || id <= 0 {
+		badRequestResponse(w)
+		return
+	}
+
+	user, err := app.model.GetUserByID(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			notFoundResponse(w)
+		default:
+			serverErrorResponse(w, err)
+		}
+		return
+	}
+
+	var input struct {
+		GameTag string `json:"game_tag"`
+	}
+
+	err = readJSON(r, &input)
+	if err != nil {
+		badRequestResponse(w)
+		return
+	}
+
+	v := validator.New()
+	err = data.ValidateGameTag(v, input.GameTag, app.cfg.clashAPIToken)
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+
+	if ok := v.Valid(); !ok {
+		failedValidationResponse(w, v.Errors)
+		return
+	}
+
+	user.GameTag = &input.GameTag
+
+	err = app.model.UpdateUser(&user)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			editConflictResponse(w)
+		default:
+			serverErrorResponse(w, err)
+		}
+		return
+	}
+
+	err = writeJSON(w, http.StatusOK, envelope{"user": user})
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+}
+
 func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {

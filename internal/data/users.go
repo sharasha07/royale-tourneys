@@ -2,6 +2,9 @@ package data
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/url"
 	"time"
 	"unicode/utf8"
 
@@ -30,6 +33,33 @@ func ValidateUser(v *validator.Validator, username, password *string) {
 		v.Check(utf8.RuneCountInString(*password) > 5, "password", "must be more than 5 characters")
 		v.Check(utf8.RuneCountInString(*password) <= 15, "password", "must not have more than 15 characters")
 	}
+}
+
+func ValidateGameTag(v *validator.Validator, gameTag, token string) error {
+	client := http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	endpoint := fmt.Sprintf("https://api.clashroyale.com/v1/players/%s", url.PathEscape(gameTag))
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error while making request to clash API with status code: %d", resp.StatusCode)
+	}
+
+	v.Check(resp.StatusCode != http.StatusNotFound, "game_tag", "invalid")
+
+	return nil
 }
 
 func (m DBModel) CreateUser(username string, passwordHash []byte) (User, error) {
