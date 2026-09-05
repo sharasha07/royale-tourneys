@@ -2,10 +2,13 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/alexedwards/argon2id"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/sharasha07/royale-tourneys/internal/data"
@@ -196,6 +199,95 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	user.GameTag = &input.GameTag
+
+	err = app.model.UpdateUser(&user)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			editConflictResponse(w)
+		case errors.As(err, &pgErr) && pgErr.Code == "23505":
+			v.Add("username", "must be unique")
+			failedValidationResponse(w, v.Errors)
+		default:
+			serverErrorResponse(w, err)
+		}
+		return
+	}
+
+	err = writeJSON(w, http.StatusOK, envelope{"user": user})
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+}
+
+func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil || id <= 0 {
+		badRequestResponse(w)
+		return
+	}
+
+	user, err := app.model.GetUserByID(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			notFoundResponse(w)
+		default:
+			serverErrorResponse(w, err)
+		}
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20)
+
+	err = r.ParseMultipartForm(5 << 20)
+	if err != nil {
+		badRequestResponse(w)
+		return
+	}
+
+	file, header, err := r.FormFile("avatar")
+	if err != nil {
+		badRequestResponse(w)
+		return
+	}
+	defer file.Close()
+
+	var key string
+	contentType := header.Header.Get("Content-Type")
+	switch contentType {
+	case "":
+		badRequestResponse(w)
+		return
+	case "image/jpeg":
+		key = fmt.Sprintf("users/%d/profile_picture.jpg", id)
+	case "image/png":
+		key = fmt.Sprintf("users/%d/profile_picture.png", id)
+	case "image/webp":
+		key = fmt.Sprintf("users/%d/profile_picture.webp", id)
+	default:
+		badRequestResponse(w)
+		return
+	}
+
+	_, err = app.s3Client.PutObject(r.Context(),
+		&s3.PutObjectInput{
+			Bucket:       &app.cfg.r2Bucket,
+			Key:          &key,
+			Body:         file,
+			ContentType:  &contentType,
+			CacheControl: aws.String("public, max-age=3600"),
+		},
+	)
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+
+	endpoint := app.cfg.r2PublicURL + "/" + key
+	user.ProfilePicture = &endpoint
 
 	err = app.model.UpdateUser(&user)
 	if err != nil {

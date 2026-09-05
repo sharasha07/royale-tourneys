@@ -127,14 +127,14 @@ func (m DBModel) GetUserByID(id int) (User, error) {
 func (m DBModel) UpdateUser(user *User) error {
 	query := `
 		UPDATE users
-		SET username = $1, password_hash = $2, game_tag = $3, version = version + 1
-		WHERE id = $4 and version = $5
+		SET username = $1, password_hash = $2, game_tag = $3, profile_picture = $4, version = version + 1
+		WHERE id = $5 and version = $6
 		RETURNING version`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	args := []any{user.Username, user.PasswordHash, user.GameTag, user.ID, user.Version}
+	args := []any{user.Username, user.PasswordHash, user.GameTag, user.ProfilePicture, user.ID, user.Version}
 
 	err := m.pool.QueryRow(ctx, query, args...).Scan(
 		&user.Version,

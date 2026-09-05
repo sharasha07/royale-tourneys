@@ -10,20 +10,29 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sharasha07/royale-tourneys/internal/data"
 )
 
 type config struct {
-	port          int
-	postgresURL   string
-	clashAPIToken string
+	port              int
+	postgresURL       string
+	clashAPIToken     string
+	r2AccountID       string
+	r2AccessKey       string
+	r2SecretAccessKey string
+	r2Bucket          string
+	r2PublicURL       string
+	s3ApiEndpoint     string
 }
 
 type application struct {
-	cfg    config
-	model  data.DBModel
-	client *http.Client
+	cfg      config
+	model    data.DBModel
+	client   *http.Client
+	s3Client *s3.Client
 }
 
 func main() {
@@ -47,10 +56,18 @@ func main() {
 	}
 	log.Println("connected to the database")
 
+	s3Client := s3.New(s3.Options{
+		Credentials:  credentials.NewStaticCredentialsProvider(cfg.r2AccessKey, cfg.r2SecretAccessKey, ""),
+		Region:       "auto",
+		BaseEndpoint: &cfg.s3ApiEndpoint,
+		UsePathStyle: true,
+	})
+
 	app := &application{
-		cfg:    cfg,
-		model:  data.NewDBModel(pool),
-		client: &http.Client{Timeout: 10 * time.Second},
+		cfg:      cfg,
+		model:    data.NewDBModel(pool),
+		client:   &http.Client{Timeout: 10 * time.Second},
+		s3Client: s3Client,
 	}
 
 	mux := http.NewServeMux()
@@ -60,6 +77,7 @@ func main() {
 	mux.HandleFunc("GET /v1/users/{id}", app.showUserHandler)
 	mux.HandleFunc("PATCH /v1/users/{id}", app.updateUserHandler)
 	mux.HandleFunc("PUT /v1/users/{id}/tag", app.updateGameTagHandler)
+	mux.HandleFunc("PUT /v1/users/{id}/profile_picture", app.updateProfilePictureHandler)
 	mux.HandleFunc("DELETE /v1/users/{id}", app.deleteUserHandler)
 
 	srv := &http.Server{
@@ -97,6 +115,42 @@ func loadConfig() (config, error) {
 		return config{}, errors.New("CLASH_API_TOKEN must be provided")
 	} else {
 		cfg.clashAPIToken = token
+	}
+
+	if r2AccountID, ok := os.LookupEnv("R2_ACCOUNT_ID"); !ok {
+		return config{}, errors.New("R2_ACCOUNT_ID must be provided")
+	} else {
+		cfg.r2AccountID = r2AccountID
+	}
+
+	if r2AccessKey, ok := os.LookupEnv("R2_ACCESS_KEY"); !ok {
+		return config{}, errors.New("R2_ACCESS_KEY must be provided")
+	} else {
+		cfg.r2AccessKey = r2AccessKey
+	}
+
+	if r2SecretAccessKey, ok := os.LookupEnv("R2_SECRET_ACCESS_KEY"); !ok {
+		return config{}, errors.New("R2_SECRET_ACCESS_KEY must be provided")
+	} else {
+		cfg.r2SecretAccessKey = r2SecretAccessKey
+	}
+
+	if r2Bucket, ok := os.LookupEnv("R2_BUCKET"); !ok {
+		return config{}, errors.New("R2_BUCKET must be provided")
+	} else {
+		cfg.r2Bucket = r2Bucket
+	}
+
+	if r2PublicURL, ok := os.LookupEnv("R2_PUBLIC_URL"); !ok {
+		return config{}, errors.New("R2_PUBLIC_URL must be provided")
+	} else {
+		cfg.r2PublicURL = r2PublicURL
+	}
+
+	if s3APIEndpoint, ok := os.LookupEnv("S3_API_ENDPOINT"); !ok {
+		return config{}, errors.New("S3_API_ENDPOINT must be provided")
+	} else {
+		cfg.s3ApiEndpoint = s3APIEndpoint
 	}
 
 	return cfg, nil
