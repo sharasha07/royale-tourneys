@@ -87,10 +87,7 @@ func (app *application) showUserHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request) {
-	user, ok := r.Context().Value("user").(*data.User)
-	if !ok {
-		panic("missing user value in request context")
-	}
+	user := contextGetUser(r)
 
 	if user.IsAnonymous() {
 		authenticationRequiredResponse(w)
@@ -163,10 +160,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Request) {
-	user, ok := r.Context().Value("user").(*data.User)
-	if !ok {
-		panic("missing user value in request context")
-	}
+	user := contextGetUser(r)
 
 	if user.IsAnonymous() {
 		authenticationRequiredResponse(w)
@@ -231,10 +225,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 }
 
 func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *http.Request) {
-	user, ok := r.Context().Value("user").(*data.User)
-	if !ok {
-		panic("missing user value in request context")
-	}
+	user := contextGetUser(r)
 
 	if user.IsAnonymous() {
 		authenticationRequiredResponse(w)
@@ -320,10 +311,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 }
 
 func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
-	user, ok := r.Context().Value("user").(*data.User)
-	if !ok {
-		panic("missing user value in request context")
-	}
+	user := contextGetUser(r)
 
 	if user.IsAnonymous() {
 		authenticationRequiredResponse(w)

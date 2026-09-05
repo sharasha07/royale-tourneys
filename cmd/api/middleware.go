@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -32,9 +31,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			ctx := r.Context()
-			ctx = context.WithValue(ctx, "user", data.AnonymousUser)
-			r = r.WithContext(ctx)
+			r = contextSetUser(r, data.AnonymousUser)
 
 			next.ServeHTTP(w, r)
 			return
@@ -76,9 +73,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, "user", user)
-		r = r.WithContext(ctx)
+		contextSetUser(r, &user)
 
 		next.ServeHTTP(w, r)
 	})
