@@ -152,9 +152,13 @@ func (m DBModel) DeleteUser(id int) error {
 	defer cancel()
 
 	tag, err := m.pool.Exec(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
 	if tag.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
 
-	return err
+	return nil
 }

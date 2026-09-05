@@ -135,9 +135,13 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 
 	err = app.model.UpdateUser(&user)
 	if err != nil {
+		var pgErr *pgconn.PgError
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 			editConflictResponse(w)
+		case errors.As(err, &pgErr) && pgErr.Code == "23505":
+			v.Add("username", "must be unique")
+			failedValidationResponse(w, v.Errors)
 		default:
 			serverErrorResponse(w, err)
 		}
@@ -229,9 +233,5 @@ func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = writeJSON(w, http.StatusNoContent, nil)
-	if err != nil {
-		serverErrorResponse(w, err)
-		return
-	}
+	w.WriteHeader(http.StatusNoContent)
 }

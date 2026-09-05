@@ -59,7 +59,7 @@ func main() {
 	mux.HandleFunc("POST /v1/users", app.createUserHandler)
 	mux.HandleFunc("GET /v1/users/{id}", app.showUserHandler)
 	mux.HandleFunc("PATCH /v1/users/{id}", app.updateUserHandler)
-	mux.HandleFunc("UPDATE /v1/users/{id}/tag", app.updateGameTagHandler)
+	mux.HandleFunc("PUT /v1/users/{id}/tag", app.updateGameTagHandler)
 	mux.HandleFunc("DELETE /v1/users/{id}", app.deleteUserHandler)
 
 	srv := &http.Server{
