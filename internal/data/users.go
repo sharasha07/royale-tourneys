@@ -12,6 +12,8 @@ import (
 	"github.com/sharasha07/royale-tourneys/internal/validator"
 )
 
+var AnonymousUser *User
+
 type User struct {
 	ID             int       `json:"id"`
 	Username       string    `json:"username"`
@@ -20,6 +22,10 @@ type User struct {
 	ProfilePicture *string   `json:"profile_picture"`
 	CreatedAt      time.Time `json:"created_at"`
 	Version        int       `json:"version"`
+}
+
+func (u *User) IsAnonymous() bool {
+	return u == AnonymousUser
 }
 
 func ValidateUser(v *validator.Validator, username, password *string) {
@@ -108,6 +114,33 @@ func (m DBModel) GetUserByID(id int) (User, error) {
 
 	var u User
 	err := m.pool.QueryRow(ctx, query, id).Scan(
+		&u.ID,
+		&u.Username,
+		&u.PasswordHash,
+		&u.GameTag,
+		&u.ProfilePicture,
+		&u.CreatedAt,
+		&u.Version,
+	)
+
+	if err != nil {
+		return User{}, err
+	}
+
+	return u, nil
+}
+
+func (m DBModel) GetUserByUsername(username string) (User, error) {
+	query := `
+		SELECT id, username, password_hash, game_tag, profile_picture, created_at, version
+		FROM users
+		WHERE username = $1`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var u User
+	err := m.pool.QueryRow(ctx, query, username).Scan(
 		&u.ID,
 		&u.Username,
 		&u.PasswordHash,

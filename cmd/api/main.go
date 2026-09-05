@@ -19,6 +19,7 @@ import (
 type config struct {
 	port              int
 	postgresURL       string
+	jwtSecret         string
 	clashAPIToken     string
 	r2AccountID       string
 	r2AccessKey       string
@@ -82,7 +83,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
-		Handler:      recoverPanic(mux),
+		Handler:      recoverPanic(app.authenticate(mux)),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  time.Minute,
@@ -109,6 +110,12 @@ func loadConfig() (config, error) {
 		return config{}, errors.New("POSTGRES_URL must be provided")
 	} else {
 		cfg.postgresURL = postgresURL
+	}
+
+	if jwtSecret, ok := os.LookupEnv("JWT_SECRET"); !ok {
+		return config{}, errors.New("JWT_SECRET must be provided")
+	} else {
+		cfg.jwtSecret = jwtSecret
 	}
 
 	if token, ok := os.LookupEnv("CLASH_API_TOKEN"); !ok {

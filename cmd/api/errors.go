@@ -37,3 +37,13 @@ func editConflictResponse(w http.ResponseWriter) {
 	message := "edit conflict"
 	sendError(w, http.StatusConflict, message)
 }
+
+func invalidCredentialsResponse(w http.ResponseWriter) {
+	message := "invalid credentials"
+	sendError(w, http.StatusUnauthorized, message)
+}
+
+func invalidAuthenticationTokenResponse(w http.ResponseWriter) {
+	message := "invalid authentication token"
+	sendError(w, http.StatusUnauthorized, message)
+}
