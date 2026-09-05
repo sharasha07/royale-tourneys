@@ -17,10 +17,13 @@ import (
 )
 
 type config struct {
-	port              int
-	postgresURL       string
-	jwtSecret         string
-	clashAPIToken     string
+	port          int
+	postgresURL   string
+	jwtSecret     string
+	jwtAccessTTL  time.Duration
+	jwtRefreshTTL time.Duration
+	clashAPIToken string
+
 	r2AccountID       string
 	r2AccessKey       string
 	r2SecretAccessKey string
@@ -75,13 +78,13 @@ func main() {
 	mux.HandleFunc("GET /health", healthHandler)
 
 	mux.HandleFunc("POST /v1/users", app.createUserHandler)
+	mux.HandleFunc("POST /v1/users/login", app.loginHandler)
+	mux.HandleFunc("POST /v1/users/token/refresh", app.refreshTokenHandler)
 	mux.HandleFunc("GET /v1/users/{id}", app.showUserHandler)
 	mux.HandleFunc("PATCH /v1/users/{id}", app.updateUserHandler)
 	mux.HandleFunc("PUT /v1/users/{id}/tag", app.updateGameTagHandler)
 	mux.HandleFunc("PUT /v1/users/{id}/profile_picture", app.updateProfilePictureHandler)
 	mux.HandleFunc("DELETE /v1/users/{id}", app.deleteUserHandler)
-
-	mux.HandleFunc("POST /v1/tokens", app.createAuthenticationTokenHandler)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
@@ -118,6 +121,28 @@ func loadConfig() (config, error) {
 		return config{}, errors.New("JWT_SECRET must be provided")
 	} else {
 		cfg.jwtSecret = jwtSecret
+	}
+
+	if jwtAccessTTL, ok := os.LookupEnv("JWT_ACCESS_TTL"); !ok {
+		return config{}, errors.New("JWT_ACCESS_TTL must be provided")
+	} else {
+		dur, err := time.ParseDuration(jwtAccessTTL)
+		if err != nil {
+			return config{}, err
+		}
+
+		cfg.jwtAccessTTL = dur
+	}
+
+	if jwtRefreshTTL, ok := os.LookupEnv("JWT_REFRESH_TTL"); !ok {
+		return config{}, errors.New("JWT_REFRESH_TTL must be provided")
+	} else {
+		dur, err := time.ParseDuration(jwtRefreshTTL)
+		if err != nil {
+			return config{}, err
+		}
+
+		cfg.jwtRefreshTTL = dur
 	}
 
 	if token, ok := os.LookupEnv("CLASH_API_TOKEN"); !ok {

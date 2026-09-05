@@ -53,7 +53,7 @@ func authenticationRequiredResponse(w http.ResponseWriter) {
 	sendError(w, http.StatusUnauthorized, message)
 }
 
-func unauthorizedResponse(w http.ResponseWriter) {
+func notAuthorizedResponse(w http.ResponseWriter) {
 	message := "user is not permitted to access this resource"
 	sendError(w, http.StatusForbidden, message)
 }

@@ -101,7 +101,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	if id != user.ID {
-		unauthorizedResponse(w)
+		notAuthorizedResponse(w)
 		return
 	}
 
@@ -174,7 +174,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	if id != user.ID {
-		unauthorizedResponse(w)
+		notAuthorizedResponse(w)
 		return
 	}
 
@@ -239,7 +239,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 	}
 
 	if id != user.ID {
-		unauthorizedResponse(w)
+		notAuthorizedResponse(w)
 		return
 	}
 
@@ -325,7 +325,7 @@ func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	if id != user.ID {
-		unauthorizedResponse(w)
+		notAuthorizedResponse(w)
 		return
 	}
 
