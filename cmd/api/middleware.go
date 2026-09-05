@@ -73,7 +73,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		contextSetUser(r, &user)
+		r = contextSetUser(r, &user)
 
 		next.ServeHTTP(w, r)
 	})
