@@ -87,20 +87,24 @@ func (app *application) showUserHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value("user").(*data.User)
+	if !ok {
+		panic("missing user value in request context")
+	}
+
+	if user.IsAnonymous() {
+		authenticationRequiredResponse(w)
+		return
+	}
+
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
 		badRequestResponse(w)
 		return
 	}
 
-	user, err := app.model.GetUserByID(id)
-	if err != nil {
-		switch {
-		case errors.Is(err, pgx.ErrNoRows):
-			notFoundResponse(w)
-		default:
-			serverErrorResponse(w, err)
-		}
+	if id != user.ID {
+		unauthorizedResponse(w)
 		return
 	}
 
@@ -136,7 +140,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 		user.PasswordHash = []byte(hash)
 	}
 
-	err = app.model.UpdateUser(&user)
+	err = app.model.UpdateUser(user)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		switch {
@@ -159,20 +163,24 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value("user").(*data.User)
+	if !ok {
+		panic("missing user value in request context")
+	}
+
+	if user.IsAnonymous() {
+		authenticationRequiredResponse(w)
+		return
+	}
+
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
 		badRequestResponse(w)
 		return
 	}
 
-	user, err := app.model.GetUserByID(id)
-	if err != nil {
-		switch {
-		case errors.Is(err, pgx.ErrNoRows):
-			notFoundResponse(w)
-		default:
-			serverErrorResponse(w, err)
-		}
+	if id != user.ID {
+		unauthorizedResponse(w)
 		return
 	}
 
@@ -200,14 +208,14 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 
 	user.GameTag = &input.GameTag
 
-	err = app.model.UpdateUser(&user)
+	err = app.model.UpdateUser(user)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 			editConflictResponse(w)
 		case errors.As(err, &pgErr) && pgErr.Code == "23505":
-			v.Add("username", "must be unique")
+			v.Add("game_tag", "must be unique")
 			failedValidationResponse(w, v.Errors)
 		default:
 			serverErrorResponse(w, err)
@@ -223,20 +231,24 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 }
 
 func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value("user").(*data.User)
+	if !ok {
+		panic("missing user value in request context")
+	}
+
+	if user.IsAnonymous() {
+		authenticationRequiredResponse(w)
+		return
+	}
+
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
 		badRequestResponse(w)
 		return
 	}
 
-	user, err := app.model.GetUserByID(id)
-	if err != nil {
-		switch {
-		case errors.Is(err, pgx.ErrNoRows):
-			notFoundResponse(w)
-		default:
-			serverErrorResponse(w, err)
-		}
+	if id != user.ID {
+		unauthorizedResponse(w)
 		return
 	}
 
@@ -289,7 +301,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 	endpoint := app.cfg.r2PublicURL + "/" + key
 	user.ProfilePicture = &endpoint
 
-	err = app.model.UpdateUser(&user)
+	err = app.model.UpdateUser(user)
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -308,9 +320,24 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 }
 
 func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value("user").(*data.User)
+	if !ok {
+		panic("missing user value in request context")
+	}
+
+	if user.IsAnonymous() {
+		authenticationRequiredResponse(w)
+		return
+	}
+
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
 		badRequestResponse(w)
+		return
+	}
+
+	if id != user.ID {
+		unauthorizedResponse(w)
 		return
 	}
 

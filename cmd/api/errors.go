@@ -47,3 +47,13 @@ func invalidAuthenticationTokenResponse(w http.ResponseWriter) {
 	message := "invalid authentication token"
 	sendError(w, http.StatusUnauthorized, message)
 }
+
+func authenticationRequiredResponse(w http.ResponseWriter) {
+	message := "authorization required to access this endpoint"
+	sendError(w, http.StatusUnauthorized, message)
+}
+
+func unauthorizedResponse(w http.ResponseWriter) {
+	message := "user is not permitted to access this resource"
+	sendError(w, http.StatusForbidden, message)
+}

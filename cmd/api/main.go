@@ -81,6 +81,8 @@ func main() {
 	mux.HandleFunc("PUT /v1/users/{id}/profile_picture", app.updateProfilePictureHandler)
 	mux.HandleFunc("DELETE /v1/users/{id}", app.deleteUserHandler)
 
+	mux.HandleFunc("POST /v1/tokens", app.createAuthenticationTokenHandler)
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
 		Handler:      recoverPanic(app.authenticate(mux)),
