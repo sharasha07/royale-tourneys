@@ -38,6 +38,11 @@ func editConflictResponse(w http.ResponseWriter) {
 	sendError(w, http.StatusConflict, message)
 }
 
+func rateLimitExceededResponse(w http.ResponseWriter) {
+	message := "rate limit exceeded"
+	sendError(w, http.StatusTooManyRequests, message)
+}
+
 func invalidCredentialsResponse(w http.ResponseWriter) {
 	message := "invalid credentials"
 	sendError(w, http.StatusUnauthorized, message)

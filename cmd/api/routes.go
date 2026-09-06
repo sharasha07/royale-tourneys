@@ -1,6 +1,8 @@
 package main
 
-import "net/http"
+import (
+	"net/http"
+)
 
 func (app *application) routes() http.Handler {
 	mux := http.NewServeMux()
@@ -15,5 +17,5 @@ func (app *application) routes() http.Handler {
 	mux.HandleFunc("PUT /v1/users/{id}/profile_picture", app.updateProfilePictureHandler)
 	mux.HandleFunc("DELETE /v1/users/{id}", app.deleteUserHandler)
 
-	return recoverPanic(app.authenticate(mux))
+	return recoverPanic(app.rateLimit(app.authenticate(mux)))
 }

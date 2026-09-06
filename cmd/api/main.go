@@ -35,6 +35,12 @@ type config struct {
 		publicURL       string
 		s3ApiEndpoint   string
 	}
+
+	limiter struct {
+		rps     float64
+		burst   int
+		enabled bool
+	}
 }
 
 type application struct {
@@ -95,14 +101,14 @@ func main() {
 func loadConfig() (config, error) {
 	var cfg config
 
-	if port, ok := os.LookupEnv("PORT"); ok {
+	if port, ok := os.LookupEnv("PORT"); !ok {
+		return config{}, errors.New("PORT environment variable must be provided")
+	} else {
 		portNumber, err := strconv.Atoi(port)
 		if err != nil {
 			return config{}, errors.New("PORT must be a number")
 		}
 		cfg.port = portNumber
-	} else {
-		return config{}, errors.New("PORT environment variable must be provided")
 	}
 
 	if postgresURL, ok := os.LookupEnv("POSTGRES_URL"); !ok {
@@ -173,6 +179,36 @@ func loadConfig() (config, error) {
 		return config{}, errors.New("S3_API_ENDPOINT environment variable must be provided")
 	} else {
 		cfg.r2.s3ApiEndpoint = s3APIEndpoint
+	}
+
+	if limiterRPS, ok := os.LookupEnv("LIMITER_RPS"); !ok {
+		return config{}, errors.New("LIMITER_RPS environment variable must be provided")
+	} else {
+		rpsNumber, err := strconv.ParseFloat(limiterRPS, 64)
+		if err != nil {
+			return config{}, errors.New("LIMITER_RPS must be a float")
+		}
+		cfg.limiter.rps = rpsNumber
+	}
+
+	if limiterBurst, ok := os.LookupEnv("LIMITER_BURST"); !ok {
+		return config{}, errors.New("LIMITER_BURST environment variable must be provided")
+	} else {
+		burstNumber, err := strconv.Atoi(limiterBurst)
+		if err != nil {
+			return config{}, errors.New("LIMITER_RPS must be an int")
+		}
+		cfg.limiter.burst = burstNumber
+	}
+
+	if limiterEnabled, ok := os.LookupEnv("LIMITER_ENABLED"); !ok {
+		return config{}, errors.New("LIMITER_ENABLED environment variable must be provided")
+	} else {
+		ok, err := strconv.ParseBool(limiterEnabled)
+		if err != nil {
+			return config{}, errors.New("LIMITER_ENABLED must be a bool")
+		}
+		cfg.limiter.enabled = ok
 	}
 
 	return cfg, nil
