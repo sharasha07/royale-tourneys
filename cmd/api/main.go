@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -85,17 +84,10 @@ func main() {
 		s3Client:   s3Client,
 	}
 
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.port),
-		Handler:      app.routes(),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  time.Minute,
+	err = app.serve()
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	log.Printf("starting server on port: %d", cfg.port)
-	err = srv.ListenAndServe()
-	log.Fatal(err)
 }
 
 func loadConfig() (config, error) {
