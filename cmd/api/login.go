@@ -43,7 +43,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jwtToken, err := data.NewJWTToken(user.ID, app.cfg.jwtSecret, app.cfg.jwtAccessTTL)
+	jwtToken, err := data.NewJWTToken(user.ID, app.cfg.jwt.secret, app.cfg.jwt.accessTTL)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return
@@ -55,7 +55,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = app.model.AddRefreshToken(refreshToken, user.ID, app.cfg.jwtRefreshTTL)
+	err = app.model.AddRefreshToken(refreshToken, user.ID, app.cfg.jwt.refreshTTL)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return
@@ -99,7 +99,7 @@ func (app *application) refreshTokenHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	newAccessToken, err := data.NewJWTToken(userID, app.cfg.jwtSecret, app.cfg.jwtAccessTTL)
+	newAccessToken, err := data.NewJWTToken(userID, app.cfg.jwt.secret, app.cfg.jwt.accessTTL)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return
@@ -111,7 +111,7 @@ func (app *application) refreshTokenHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = app.model.AddRefreshToken(newRefreshToken, userID, app.cfg.jwtRefreshTTL)
+	err = app.model.AddRefreshToken(newRefreshToken, userID, app.cfg.jwt.refreshTTL)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return

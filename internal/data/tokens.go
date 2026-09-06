@@ -40,9 +40,8 @@ func NewRefreshToken() (string, error) {
 }
 
 func tokenHash(token string) []byte {
-	h := sha256.New()
-	h.Write([]byte(token))
-	return h.Sum(nil)
+	sum := sha256.Sum256([]byte(token))
+	return sum[:]
 }
 
 func (m DBModel) AddRefreshToken(token string, userID int, ttl time.Duration) error {
@@ -75,22 +74,6 @@ func (m DBModel) GetRefreshTokenUserID(token string) (int, error) {
 	}
 
 	return userID, nil
-}
-
-func (m DBModel) IsRefreshTokenValid(token string, userID int) (bool, error) {
-	query := `
-		SELECT EXISTS(
-			SELECT 1 FROM refresh_tokens
-			WHERE token_hash = $1 AND user_id = $2 AND expires_at > NOW()
-		)`
-
-	var valid bool
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	err := m.pool.QueryRow(ctx, query, tokenHash(token), userID).Scan(&valid)
-
-	return valid, err
 }
 
 func (m DBModel) DeleteRefreshToken(token string) error {

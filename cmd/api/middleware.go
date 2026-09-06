@@ -45,7 +45,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 
 		token := parts[1]
 
-		claims, err := jwt.HMACCheck([]byte(token), []byte(app.cfg.jwtSecret))
+		claims, err := jwt.HMACCheck([]byte(token), []byte(app.cfg.jwt.secret))
 		if err != nil {
 			invalidAuthenticationTokenResponse(w)
 			return
