@@ -189,7 +189,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	v := validator.New()
-	err = data.ValidateGameTag(v, input.GameTag, app.cfg.clashAPIToken, app.httpClient)
+	err = data.ValidateGameTag(v, input.GameTag, app.cfg.ClashAPIToken, app.httpClient)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return
@@ -277,7 +277,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 
 	_, err = app.s3Client.PutObject(r.Context(),
 		&s3.PutObjectInput{
-			Bucket:       &app.cfg.r2.bucket,
+			Bucket:       &app.cfg.R2.Bucket,
 			Key:          &key,
 			Body:         file,
 			ContentType:  &contentType,
@@ -289,7 +289,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	endpoint := app.cfg.r2.publicURL + "/" + key
+	endpoint := app.cfg.R2.PublicURL + "/" + key
 	user.ProfilePicture = &endpoint
 
 	err = app.model.UpdateUser(user)

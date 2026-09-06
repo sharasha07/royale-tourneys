@@ -60,7 +60,7 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 		origin := r.Header.Get("Origin")
 
 		if origin != "" {
-			if slices.Contains(app.cfg.cors.trustedOrigins, origin) {
+			if slices.Contains(app.cfg.CORS.TrustedOrigins, origin) {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 
 				if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
@@ -105,7 +105,7 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 	}()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if app.cfg.limiter.enabled {
+		if app.cfg.Limiter.Enabled {
 			ip, _, err := net.SplitHostPort(r.Host)
 			if err != nil {
 				serverErrorResponse(w, err)
@@ -115,7 +115,7 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 			mu.Lock()
 
 			if _, found := clients[ip]; !found {
-				clients[ip] = &client{limiter: rate.NewLimiter(rate.Limit(app.cfg.limiter.rps), app.cfg.limiter.burst)}
+				clients[ip] = &client{limiter: rate.NewLimiter(rate.Limit(app.cfg.Limiter.RPS), app.cfg.Limiter.Burst)}
 			}
 
 			clients[ip].lastSeen = time.Now()
@@ -151,7 +151,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 
 		token := parts[1]
 
-		claims, err := jwt.HMACCheck([]byte(token), []byte(app.cfg.jwt.secret))
+		claims, err := jwt.HMACCheck([]byte(token), []byte(app.cfg.JWT.Secret))
 		if err != nil {
 			invalidAuthenticationTokenResponse(w)
 			return

@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.46.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.3
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.111.0
+	github.com/caarlos0/env/v11 v11.4.1
 	github.com/felixge/httpsnoop v1.0.2
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/pascaldekloe/jwt v1.12.0
