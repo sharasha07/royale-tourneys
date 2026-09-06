@@ -7,6 +7,7 @@ import (
 	"github.com/alexedwards/argon2id"
 	"github.com/jackc/pgx/v5"
 	"github.com/sharasha07/royale-tourneys/internal/data"
+	"github.com/sharasha07/royale-tourneys/internal/validator"
 )
 
 func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +26,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			notFoundResponse(w)
+			invalidCredentialsResponse(w)
 		default:
 			serverErrorResponse(w, err)
 		}
@@ -77,8 +78,15 @@ func (app *application) refreshTokenHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	err := readJSON(r, &input)
-	if err != nil || input.RefreshToken == "" {
+	if err != nil {
 		badRequestResponse(w, err)
+		return
+	}
+
+	v := validator.New()
+	if input.RefreshToken == "" {
+		v.Add("refresh_token", "must be provided")
+		failedValidationResponse(w, v.Errors)
 		return
 	}
 

@@ -3,7 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
+	"path"
 	"strconv"
 
 	"github.com/alexedwards/argon2id"
@@ -13,6 +16,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/sharasha07/royale-tourneys/internal/data"
 	"github.com/sharasha07/royale-tourneys/internal/validator"
+)
+
+var (
+	ErrInvalidID          = errors.New("ID must be a positive integer number")
+	ErrInvalidContentType = errors.New("Invalid Content-Type")
 )
 
 func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +72,7 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 func (app *application) showUserHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w, err)
+		badRequestResponse(w, ErrInvalidID)
 		return
 	}
 
@@ -96,7 +104,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w, err)
+		badRequestResponse(w, ErrInvalidID)
 		return
 	}
 
@@ -137,6 +145,13 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 		user.PasswordHash = []byte(hash)
 	}
 
+	if input.Username == nil && input.Password == nil {
+		v := validator.New()
+		v.Add("body", "must not be empty")
+		failedValidationResponse(w, v.Errors)
+		return
+	}
+
 	err = app.model.UpdateUser(user)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -169,7 +184,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w, err)
+		badRequestResponse(w, ErrInvalidID)
 		return
 	}
 
@@ -234,7 +249,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w, err)
+		badRequestResponse(w, ErrInvalidID)
 		return
 	}
 
@@ -247,23 +262,27 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 
 	err = r.ParseMultipartForm(5 << 20)
 	if err != nil {
+		if mbErr, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			log.Println("upload too large, limit:", mbErr.Limit)
+			return
+		}
 		badRequestResponse(w, err)
 		return
 	}
 
-	file, header, err := r.FormFile("avatar")
+	file, _, err := r.FormFile("avatar")
 	if err != nil {
 		badRequestResponse(w, err)
 		return
 	}
 	defer file.Close()
 
+	buf := make([]byte, 512)
+	n, _ := file.Read(buf)
+	contentType := http.DetectContentType(buf[:n])
+
 	var key string
-	contentType := header.Header.Get("Content-Type")
 	switch contentType {
-	case "":
-		badRequestResponse(w, err)
-		return
 	case "image/jpeg":
 		key = fmt.Sprintf("users/%d/profile_picture.jpg", id)
 	case "image/png":
@@ -271,7 +290,12 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 	case "image/webp":
 		key = fmt.Sprintf("users/%d/profile_picture.webp", id)
 	default:
-		badRequestResponse(w, err)
+		badRequestResponse(w, ErrInvalidContentType)
+		return
+	}
+
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		serverErrorResponse(w, err)
 		return
 	}
 
@@ -289,11 +313,20 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	endpoint := app.cfg.R2.PublicURL + "/" + key
+	endpoint := path.Join(app.cfg.R2.PublicURL, key)
 	user.ProfilePicture = &endpoint
 
 	err = app.model.UpdateUser(user)
 	if err != nil {
+		_, delErr := app.s3Client.DeleteObject(r.Context(), &s3.DeleteObjectInput{
+			Bucket: aws.String(app.cfg.R2.Bucket),
+			Key:    aws.String(key),
+		})
+
+		if delErr != nil {
+			log.Println("failed to remove orphaned profile picture:", delErr)
+		}
+
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 			editConflictResponse(w)
@@ -320,7 +353,7 @@ func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w, err)
+		badRequestResponse(w, ErrInvalidID)
 		return
 	}
 
@@ -338,6 +371,20 @@ func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request
 			serverErrorResponse(w, err)
 		}
 		return
+	}
+
+	if user.ProfilePicture != nil {
+		ext := path.Ext(*user.ProfilePicture)
+		key := fmt.Sprintf("users/%d/profile_picture%s", id, ext)
+
+		_, delErr := app.s3Client.DeleteObject(r.Context(), &s3.DeleteObjectInput{
+			Bucket: aws.String(app.cfg.R2.Bucket),
+			Key:    aws.String(key),
+		})
+
+		if delErr != nil {
+			log.Println("failed to remove profile picture:", delErr)
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)
