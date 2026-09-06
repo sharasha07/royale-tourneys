@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -39,6 +40,10 @@ type config struct {
 		rps     float64
 		burst   int
 		enabled bool
+	}
+
+	cors struct {
+		trustedOrigins []string
 	}
 }
 
@@ -201,6 +206,12 @@ func loadConfig() (config, error) {
 			return config{}, errors.New("LIMITER_ENABLED must be a bool")
 		}
 		cfg.limiter.enabled = ok
+	}
+
+	if trustedOrigins, ok := os.LookupEnv("TRUSTED_ORIGINS"); !ok {
+		return config{}, errors.New("TRUSTED_ORIGINS environment variable must be provided")
+	} else {
+		cfg.cors.trustedOrigins = strings.Split(trustedOrigins, ",")
 	}
 
 	return cfg, nil
