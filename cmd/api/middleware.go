@@ -30,8 +30,6 @@ func (app *application) metrics(next http.Handler) http.Handler {
 
 		metrics := httpsnoop.CaptureMetrics(next, w, r)
 
-		next.ServeHTTP(w, r)
-
 		totalResponsesSent.Add(1)
 		totalProcessingTimeMicroseconds.Add(metrics.Duration.Microseconds())
 		totalResponsesSentByStatus.Add(strconv.Itoa(metrics.Code), 1)
@@ -106,7 +104,7 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if app.cfg.Limiter.Enabled {
-			ip, _, err := net.SplitHostPort(r.Host)
+			ip, _, err := net.SplitHostPort(r.RemoteAddr)
 			if err != nil {
 				serverErrorResponse(w, err)
 				return
@@ -127,9 +125,9 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 			}
 
 			mu.Unlock()
-
-			next.ServeHTTP(w, r)
 		}
+
+		next.ServeHTTP(w, r)
 	})
 }
 

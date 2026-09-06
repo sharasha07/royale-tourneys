@@ -11,9 +11,9 @@ import (
 
 type envelope map[string]any
 
-func readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+func readJSON(r *http.Request, dst any) error {
 	maxBytes := 1_048_576
-	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
+	r.Body = io.NopCloser(io.LimitReader(r.Body, int64(maxBytes)))
 
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
@@ -44,9 +44,6 @@ func readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 			fieldName := strings.TrimPrefix(err.Error(), "json: unknown field ")
 			return fmt.Errorf("body contains unknown key %s", fieldName)
 
-		case err.Error() == "http: request body too large":
-			return fmt.Errorf("body must not be larger than %d bytes", maxBytes)
-
 		case errors.As(err, &invalidUnmarshalError):
 			panic(err)
 
@@ -72,7 +69,7 @@ func writeJSON(w http.ResponseWriter, status int, env envelope) error {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	w.Write(data)
+	_, err = w.Write(data)
 
-	return nil
+	return err
 }

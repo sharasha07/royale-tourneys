@@ -31,7 +31,7 @@ func (app *application) serve() error {
 		s := <-quit
 
 		log.Printf("shutting down server, signal: %s", s.String())
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		shutdownError <- srv.Shutdown(ctx)

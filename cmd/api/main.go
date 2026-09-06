@@ -71,17 +71,20 @@ func main() {
 
 	log.Println("connected to the database")
 
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+
 	s3Client := s3.New(s3.Options{
 		Credentials:  credentials.NewStaticCredentialsProvider(cfg.R2.AccessKey, cfg.R2.SecretAccessKey, ""),
 		Region:       "auto",
 		BaseEndpoint: aws.String(cfg.R2.S3ApiEndpoint),
 		UsePathStyle: true,
+		HTTPClient:   httpClient,
 	})
 
 	app := &application{
 		cfg:        cfg,
 		model:      data.NewDBModel(pool),
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		httpClient: httpClient,
 		s3Client:   s3Client,
 	}
 

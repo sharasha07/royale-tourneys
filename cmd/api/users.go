@@ -21,9 +21,9 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 		Password string `json:"password"`
 	}
 
-	err := readJSON(w, r, &input)
+	err := readJSON(r, &input)
 	if err != nil {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 
@@ -64,7 +64,7 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 func (app *application) showUserHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 
@@ -96,7 +96,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 
@@ -110,9 +110,9 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 		Password *string `json:"password"`
 	}
 
-	err = readJSON(w, r, &input)
+	err = readJSON(r, &input)
 	if err != nil {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 
@@ -169,7 +169,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 
@@ -182,9 +182,9 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 		GameTag string `json:"game_tag"`
 	}
 
-	err = readJSON(w, r, &input)
+	err = readJSON(r, &input)
 	if err != nil {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 
@@ -234,7 +234,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 
@@ -247,13 +247,13 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 
 	err = r.ParseMultipartForm(5 << 20)
 	if err != nil {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 
 	file, header, err := r.FormFile("avatar")
 	if err != nil {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 	defer file.Close()
@@ -262,7 +262,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 	contentType := header.Header.Get("Content-Type")
 	switch contentType {
 	case "":
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	case "image/jpeg":
 		key = fmt.Sprintf("users/%d/profile_picture.jpg", id)
@@ -271,7 +271,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 	case "image/webp":
 		key = fmt.Sprintf("users/%d/profile_picture.webp", id)
 	default:
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 
@@ -320,7 +320,7 @@ func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 

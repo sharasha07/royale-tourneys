@@ -8,7 +8,7 @@ import (
 func sendError(w http.ResponseWriter, status int, message any) {
 	err := writeJSON(w, status, envelope{"error": message})
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		log.Println(err)
 	}
 }
 
@@ -19,9 +19,8 @@ func serverErrorResponse(w http.ResponseWriter, err error) {
 	sendError(w, http.StatusInternalServerError, message)
 }
 
-func badRequestResponse(w http.ResponseWriter) {
-	message := "bad request"
-	sendError(w, http.StatusBadRequest, message)
+func badRequestResponse(w http.ResponseWriter, err error) {
+	sendError(w, http.StatusBadRequest, err.Error())
 }
 
 func notFoundResponse(w http.ResponseWriter) {

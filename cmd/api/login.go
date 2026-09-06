@@ -15,9 +15,9 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 
-	err := readJSON(w, r, &input)
+	err := readJSON(r, &input)
 	if err != nil {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 
@@ -76,9 +76,9 @@ func (app *application) refreshTokenHandler(w http.ResponseWriter, r *http.Reque
 		RefreshToken string `json:"refresh_token"`
 	}
 
-	err := readJSON(w, r, &input)
+	err := readJSON(r, &input)
 	if err != nil || input.RefreshToken == "" {
-		badRequestResponse(w)
+		badRequestResponse(w, err)
 		return
 	}
 
