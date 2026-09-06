@@ -21,7 +21,7 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 		Password string `json:"password"`
 	}
 
-	err := readJSON(r, &input)
+	err := readJSON(w, r, &input)
 	if err != nil {
 		badRequestResponse(w)
 		return
@@ -110,7 +110,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 		Password *string `json:"password"`
 	}
 
-	err = readJSON(r, &input)
+	err = readJSON(w, r, &input)
 	if err != nil {
 		badRequestResponse(w)
 		return
@@ -182,7 +182,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 		GameTag string `json:"game_tag"`
 	}
 
-	err = readJSON(r, &input)
+	err = readJSON(w, r, &input)
 	if err != nil {
 		badRequestResponse(w)
 		return

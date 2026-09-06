@@ -18,14 +18,21 @@ import (
 )
 
 type config struct {
-	port        int
-	postgresURL string
+	port int
+
+	db struct {
+		dsn         string
+		minConns    int32
+		maxConns    int32
+		maxIdleTime time.Duration
+	}
 
 	jwt struct {
 		secret     string
 		accessTTL  time.Duration
 		refreshTTL time.Duration
 	}
+
 	clashAPIToken string
 
 	r2 struct {
@@ -60,19 +67,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	pool, err := pgxpool.New(context.Background(), cfg.postgresURL)
+	pool, err := connectToDB(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer pool.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	err = pool.Ping(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
 	log.Println("connected to the database")
 
 	s3Client := s3.New(s3.Options{
@@ -95,6 +95,31 @@ func main() {
 	}
 }
 
+func connectToDB(cfg config) (*pgxpool.Pool, error) {
+	poolConfig, err := pgxpool.ParseConfig(cfg.db.dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	poolConfig.MinConns = cfg.db.minConns
+	poolConfig.MaxConns = cfg.db.maxConns
+	poolConfig.MaxConnIdleTime = cfg.db.maxIdleTime
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := pool.Ping(ctx); err != nil {
+		return nil, err
+	}
+
+	return pool, nil
+}
+
 func loadConfig() (config, error) {
 	var cfg config
 
@@ -108,10 +133,40 @@ func loadConfig() (config, error) {
 		cfg.port = portNumber
 	}
 
-	if postgresURL, ok := os.LookupEnv("POSTGRES_URL"); !ok {
-		return config{}, errors.New("POSTGRES_URL environment variable must be provided")
+	if dbDSN, ok := os.LookupEnv("DB_DSN"); !ok {
+		return config{}, errors.New("DB_DSN environment variable must be provided")
 	} else {
-		cfg.postgresURL = postgresURL
+		cfg.db.dsn = dbDSN
+	}
+
+	if dbMinConns, ok := os.LookupEnv("DB_MIN_CONNS"); !ok {
+		return config{}, errors.New("DB_MIN_CONNS environment variable must be provided")
+	} else {
+		n, err := strconv.Atoi(dbMinConns)
+		if err != nil {
+			return config{}, err
+		}
+		cfg.db.minConns = int32(n)
+	}
+
+	if dbMaxConns, ok := os.LookupEnv("DB_MAX_CONNS"); !ok {
+		return config{}, errors.New("DB_MAX_CONNS environment variable must be provided")
+	} else {
+		n, err := strconv.Atoi(dbMaxConns)
+		if err != nil {
+			return config{}, err
+		}
+		cfg.db.maxConns = int32(n)
+	}
+
+	if dbMaxIdleTime, ok := os.LookupEnv("DB_MAX_IDLE_TIME"); !ok {
+		return config{}, errors.New("DB_MAX_IDLE_TIME environment variable must be provided")
+	} else {
+		dur, err := time.ParseDuration(dbMaxIdleTime)
+		if err != nil {
+			return config{}, err
+		}
+		cfg.db.maxIdleTime = dur
 	}
 
 	if jwtSecret, ok := os.LookupEnv("JWT_SECRET"); !ok {
