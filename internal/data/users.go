@@ -74,13 +74,13 @@ func ValidateGameTag(v *validator.Validator, gameTag, token string, client *http
 	}
 }
 
-func (m DBModel) CreateUser(username string, passwordHash []byte) (User, error) {
+func (m DBModel) CreateUser(ctx context.Context, username string, passwordHash []byte) (User, error) {
 	query := `
 		INSERT INTO users(username, password_hash)
 		VALUES($1, $2)
 		RETURNING id, game_tag, profile_picture, created_at, version`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	u := User{
@@ -103,13 +103,13 @@ func (m DBModel) CreateUser(username string, passwordHash []byte) (User, error) 
 	return u, nil
 }
 
-func (m DBModel) GetUserByID(id int) (User, error) {
+func (m DBModel) GetUserByID(ctx context.Context, id int) (User, error) {
 	query := `
 		SELECT id, username, password_hash, game_tag, profile_picture, created_at, version
 		FROM users
 		WHERE id = $1`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var u User
@@ -130,13 +130,13 @@ func (m DBModel) GetUserByID(id int) (User, error) {
 	return u, nil
 }
 
-func (m DBModel) GetUserByUsername(username string) (User, error) {
+func (m DBModel) GetUserByUsername(ctx context.Context, username string) (User, error) {
 	query := `
 		SELECT id, username, password_hash, game_tag, profile_picture, created_at, version
 		FROM users
 		WHERE username = $1`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var u User
@@ -157,14 +157,14 @@ func (m DBModel) GetUserByUsername(username string) (User, error) {
 	return u, nil
 }
 
-func (m DBModel) UpdateUser(user *User) error {
+func (m DBModel) UpdateUser(ctx context.Context, user *User) error {
 	query := `
 		UPDATE users
 		SET username = $1, password_hash = $2, game_tag = $3, profile_picture = $4, version = version + 1
 		WHERE id = $5 and version = $6
 		RETURNING version`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	args := []any{user.Username, user.PasswordHash, user.GameTag, user.ProfilePicture, user.ID, user.Version}
@@ -176,12 +176,12 @@ func (m DBModel) UpdateUser(user *User) error {
 	return err
 }
 
-func (m DBModel) DeleteUser(id int) error {
+func (m DBModel) DeleteUser(ctx context.Context, id int) error {
 	query := `
 		DELETE FROM users
 		WHERE id = $1`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	tag, err := m.pool.Exec(ctx, query, id)

@@ -44,13 +44,13 @@ func tokenHash(token string) []byte {
 	return sum[:]
 }
 
-func (m DBModel) AddRefreshToken(token string, userID int, ttl time.Duration) error {
+func (m DBModel) AddRefreshToken(ctx context.Context, token string, userID int, ttl time.Duration) error {
 	query := `
 		INSERT INTO refresh_tokens(token_hash, user_id, expires_at)
 		VALUES ($1, $2, $3)
 		`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	expiry := time.Now().Add(ttl)
@@ -59,12 +59,12 @@ func (m DBModel) AddRefreshToken(token string, userID int, ttl time.Duration) er
 	return err
 }
 
-func (m DBModel) GetRefreshTokenUserID(token string) (int, error) {
+func (m DBModel) GetRefreshTokenUserID(ctx context.Context, token string) (int, error) {
 	query := `
 		SELECT user_id FROM refresh_tokens
 		WHERE token_hash = $1 AND expires_at > NOW()`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var userID int
@@ -76,20 +76,20 @@ func (m DBModel) GetRefreshTokenUserID(token string) (int, error) {
 	return userID, nil
 }
 
-func (m DBModel) DeleteRefreshToken(token string) error {
+func (m DBModel) DeleteRefreshToken(ctx context.Context, token string) error {
 	query := `DELETE FROM refresh_tokens WHERE token_hash = $1`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	_, err := m.pool.Exec(ctx, query, tokenHash(token))
 	return err
 }
 
-func (m DBModel) DeleteAllRefreshToken(userID int) error {
+func (m DBModel) DeleteAllRefreshToken(ctx context.Context, userID int) error {
 	query := `DELETE FROM refresh_tokens WHERE user_id = $1`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	_, err := m.pool.Exec(ctx, query, userID)

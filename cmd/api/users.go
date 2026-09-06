@@ -49,7 +49,7 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	user, err := app.model.CreateUser(input.Username, []byte(hash))
+	user, err := app.model.CreateUser(r.Context(), input.Username, []byte(hash))
 	if err != nil {
 		var pgErr *pgconn.PgError
 		switch {
@@ -76,7 +76,7 @@ func (app *application) showUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	user, err := app.model.GetUserByID(id)
+	user, err := app.model.GetUserByID(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -152,7 +152,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = app.model.UpdateUser(user)
+	err = app.model.UpdateUser(r.Context(), user)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		switch {
@@ -217,7 +217,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 
 	user.GameTag = &input.GameTag
 
-	err = app.model.UpdateUser(user)
+	err = app.model.UpdateUser(r.Context(), user)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		switch {
@@ -316,7 +316,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 	endpoint := path.Join(app.cfg.R2.PublicURL, key)
 	user.ProfilePicture = &endpoint
 
-	err = app.model.UpdateUser(user)
+	err = app.model.UpdateUser(r.Context(), user)
 	if err != nil {
 		_, delErr := app.s3Client.DeleteObject(r.Context(), &s3.DeleteObjectInput{
 			Bucket: aws.String(app.cfg.R2.Bucket),
@@ -362,7 +362,7 @@ func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = app.model.DeleteUser(id)
+	err = app.model.DeleteUser(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):

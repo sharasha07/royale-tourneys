@@ -166,7 +166,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		user, err := app.model.GetUserByID(int(userID))
+		user, err := app.model.GetUserByID(r.Context(), int(userID))
 		if err != nil {
 			switch {
 			case errors.Is(err, pgx.ErrNoRows):
