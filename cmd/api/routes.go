@@ -20,5 +20,5 @@ func (app *application) routes() http.Handler {
 	mux.HandleFunc("PUT /v1/users/{id}/profile_picture", app.updateProfilePictureHandler)
 	mux.HandleFunc("DELETE /v1/users/{id}", app.deleteUserHandler)
 
-	return app.metrics(recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(mux)))))
+	return metrics(recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(mux)))))
 }

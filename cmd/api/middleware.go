@@ -19,7 +19,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func (app *application) metrics(next http.Handler) http.Handler {
+func metrics(next http.Handler) http.Handler {
 	totalRequestsReceived := expvar.NewInt("total_requests_received")
 	totalResponsesSent := expvar.NewInt("total_responses_sent")
 	totalProcessingTimeMicroseconds := expvar.NewInt("total_processing_time_μs")

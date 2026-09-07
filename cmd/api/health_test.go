@@ -10,12 +10,15 @@ import (
 )
 
 func TestHealthHandler(t *testing.T) {
-	rr := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	app := &application{}
 
-	healthHandler(rr, r)
+	ts := httptest.NewServer(app.routes())
+	defer ts.Close()
 
-	rs := rr.Result()
+	rs, err := ts.Client().Get(ts.URL + "/health")
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer rs.Body.Close()
 
 	assert.Equal(t, rs.StatusCode, http.StatusOK)
@@ -25,7 +28,7 @@ func TestHealthHandler(t *testing.T) {
 		Status string `json:"status"`
 	}
 
-	err := json.NewDecoder(rs.Body).Decode(&got)
+	err = json.NewDecoder(rs.Body).Decode(&got)
 	if err != nil {
 		t.Fatal(err)
 	}
