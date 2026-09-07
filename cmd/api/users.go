@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	ErrInvalidID          = errors.New("ID must be a positive integer number")
-	ErrInvalidContentType = errors.New("Invalid Content-Type")
+	ErrInvalidID          = errors.New("id must be a positive integer number")
+	ErrInvalidContentType = errors.New("invalid Content-Type")
 )
 
 func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +29,7 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 		Password string `json:"password"`
 	}
 
-	err := readJSON(r, &input)
+	err := readJSON(w, r, &input)
 	if err != nil {
 		badRequestResponse(w, err)
 		return
@@ -118,7 +118,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 		Password *string `json:"password"`
 	}
 
-	err = readJSON(r, &input)
+	err = readJSON(w, r, &input)
 	if err != nil {
 		badRequestResponse(w, err)
 		return
@@ -197,7 +197,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 		GameTag string `json:"game_tag"`
 	}
 
-	err = readJSON(r, &input)
+	err = readJSON(w, r, &input)
 	if err != nil {
 		badRequestResponse(w, err)
 		return
@@ -264,6 +264,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 	if err != nil {
 		if mbErr, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			log.Println("upload too large, limit:", mbErr.Limit)
+			fileTooLargeResponse(w)
 			return
 		}
 		badRequestResponse(w, err)
@@ -278,7 +279,11 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 	defer file.Close()
 
 	buf := make([]byte, 512)
-	n, _ := file.Read(buf)
+	n, err := file.Read(buf)
+	if err != nil && !errors.Is(err, io.EOF) {
+		serverErrorResponse(w, err)
+		return
+	}
 	contentType := http.DetectContentType(buf[:n])
 
 	var key string

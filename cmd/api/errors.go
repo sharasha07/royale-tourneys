@@ -61,3 +61,8 @@ func notAuthorizedResponse(w http.ResponseWriter) {
 	message := "user is not permitted to access this resource"
 	sendError(w, http.StatusForbidden, message)
 }
+
+func fileTooLargeResponse(w http.ResponseWriter) {
+	message := "file too large"
+	sendError(w, http.StatusRequestEntityTooLarge, message)
+}
