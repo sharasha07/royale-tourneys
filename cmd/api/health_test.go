@@ -10,28 +10,24 @@ import (
 )
 
 func TestHealthHandler(t *testing.T) {
-	app := &application{}
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rr := httptest.NewRecorder()
 
-	ts := httptest.NewServer(app.routes())
-	defer ts.Close()
+	healthHandler(rr, req)
 
-	rs, err := ts.Client().Get(ts.URL + "/health")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rs.Body.Close()
+	resp := rr.Result()
+	defer resp.Body.Close()
 
-	assert.Equal(t, rs.StatusCode, http.StatusOK)
-	assert.Equal(t, rs.Header.Get("Content-Type"), "application/json")
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 
-	var got struct {
+	var body struct {
 		Status string `json:"status"`
 	}
 
-	err = json.NewDecoder(rs.Body).Decode(&got)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, got.Status, "available")
+	assert.Equal(t, "available", body.Status)
 }

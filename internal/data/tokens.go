@@ -8,8 +8,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pascaldekloe/jwt"
 )
+
+type TokenModel struct {
+	pool *pgxpool.Pool
+}
 
 func NewJWTToken(userID int, jwtSecret string, ttl time.Duration) (string, error) {
 	claims := jwt.Claims{
@@ -44,7 +49,7 @@ func tokenHash(token string) []byte {
 	return sum[:]
 }
 
-func (m DBModel) AddRefreshToken(ctx context.Context, token string, userID int, ttl time.Duration) error {
+func (m TokenModel) Insert(ctx context.Context, token string, userID int, ttl time.Duration) error {
 	query := `
 		INSERT INTO refresh_tokens(token_hash, user_id, expires_at)
 		VALUES ($1, $2, $3)
@@ -59,7 +64,7 @@ func (m DBModel) AddRefreshToken(ctx context.Context, token string, userID int, 
 	return err
 }
 
-func (m DBModel) GetRefreshTokenUserID(ctx context.Context, token string) (int, error) {
+func (m TokenModel) GetUserID(ctx context.Context, token string) (int, error) {
 	query := `
 		SELECT user_id FROM refresh_tokens
 		WHERE token_hash = $1 AND expires_at > NOW()`
@@ -76,7 +81,7 @@ func (m DBModel) GetRefreshTokenUserID(ctx context.Context, token string) (int, 
 	return userID, nil
 }
 
-func (m DBModel) DeleteRefreshToken(ctx context.Context, token string) error {
+func (m TokenModel) Delete(ctx context.Context, token string) error {
 	query := `DELETE FROM refresh_tokens WHERE token_hash = $1`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -86,7 +91,7 @@ func (m DBModel) DeleteRefreshToken(ctx context.Context, token string) error {
 	return err
 }
 
-func (m DBModel) DeleteAllRefreshToken(ctx context.Context, userID int) error {
+func (m TokenModel) DeleteAllForUser(ctx context.Context, userID int) error {
 	query := `DELETE FROM refresh_tokens WHERE user_id = $1`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

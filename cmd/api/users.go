@@ -12,15 +12,9 @@ import (
 	"github.com/alexedwards/argon2id"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/sharasha07/royale-tourneys/internal/data"
 	"github.com/sharasha07/royale-tourneys/internal/validator"
-)
-
-var (
-	ErrInvalidID          = errors.New("id must be a positive integer number")
-	ErrInvalidContentType = errors.New("invalid Content-Type")
 )
 
 func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -43,13 +37,7 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	hash, err := argon2id.CreateHash(input.Password, argon2id.DefaultParams)
-	if err != nil {
-		serverErrorResponse(w, err)
-		return
-	}
-
-	user, err := app.model.CreateUser(r.Context(), input.Username, []byte(hash))
+	user, err := app.models.Users.Insert(r.Context(), input.Username, input.Password)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		switch {
@@ -72,14 +60,14 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 func (app *application) showUserHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w, ErrInvalidID)
+		notFoundResponse(w)
 		return
 	}
 
-	user, err := app.model.GetUserByID(r.Context(), id)
+	user, err := app.models.Users.GetByID(r.Context(), id)
 	if err != nil {
 		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		case errors.Is(err, data.ErrNoRecord):
 			notFoundResponse(w)
 		default:
 			serverErrorResponse(w, err)
@@ -104,7 +92,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w, ErrInvalidID)
+		notFoundResponse(w)
 		return
 	}
 
@@ -152,11 +140,11 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = app.model.UpdateUser(r.Context(), user)
+	err = app.models.Users.Update(r.Context(), user)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		case errors.Is(err, data.ErrEditConflict):
 			editConflictResponse(w)
 		case errors.As(err, &pgErr) && pgErr.Code == "23505":
 			v.Add("username", "must be unique")
@@ -184,7 +172,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w, ErrInvalidID)
+		notFoundResponse(w)
 		return
 	}
 
@@ -217,11 +205,11 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 
 	user.GameTag = &input.GameTag
 
-	err = app.model.UpdateUser(r.Context(), user)
+	err = app.models.Users.Update(r.Context(), user)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		case errors.Is(err, data.ErrEditConflict):
 			editConflictResponse(w)
 		case errors.As(err, &pgErr) && pgErr.Code == "23505":
 			v.Add("game_tag", "must be unique")
@@ -249,7 +237,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w, ErrInvalidID)
+		notFoundResponse(w)
 		return
 	}
 
@@ -295,7 +283,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 	case "image/webp":
 		key = fmt.Sprintf("users/%d/profile_picture.webp", id)
 	default:
-		badRequestResponse(w, ErrInvalidContentType)
+		badRequestResponse(w, errors.New("invalid Content-Type"))
 		return
 	}
 
@@ -321,7 +309,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 	endpoint := path.Join(app.cfg.R2.PublicURL, key)
 	user.ProfilePicture = &endpoint
 
-	err = app.model.UpdateUser(r.Context(), user)
+	err = app.models.Users.Update(r.Context(), user)
 	if err != nil {
 		_, delErr := app.s3Client.DeleteObject(r.Context(), &s3.DeleteObjectInput{
 			Bucket: aws.String(app.cfg.R2.Bucket),
@@ -333,7 +321,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 		}
 
 		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		case errors.Is(err, data.ErrEditConflict):
 			editConflictResponse(w)
 		default:
 			serverErrorResponse(w, err)
@@ -358,7 +346,7 @@ func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
-		badRequestResponse(w, ErrInvalidID)
+		notFoundResponse(w)
 		return
 	}
 
@@ -367,10 +355,10 @@ func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = app.model.DeleteUser(r.Context(), id)
+	err = app.models.Users.Delete(r.Context(), id)
 	if err != nil {
 		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		case errors.Is(err, data.ErrNoRecord):
 			notFoundResponse(w)
 		default:
 			serverErrorResponse(w, err)

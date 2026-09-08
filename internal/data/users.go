@@ -2,17 +2,24 @@ package data
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 	"unicode/utf8"
 
+	"github.com/alexedwards/argon2id"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sharasha07/royale-tourneys/internal/validator"
 )
 
 var AnonymousUser *User
+
+type UserModel struct {
+	pool *pgxpool.Pool
+}
 
 type User struct {
 	ID             int       `json:"id"`
@@ -74,22 +81,28 @@ func ValidateGameTag(v *validator.Validator, gameTag, token string, client *http
 	}
 }
 
-func (m DBModel) CreateUser(ctx context.Context, username string, passwordHash []byte) (User, error) {
+func (m UserModel) Insert(ctx context.Context, username, password string) (User, error) {
 	query := `
 		INSERT INTO users(username, password_hash)
 		VALUES($1, $2)
 		RETURNING id, game_tag, profile_picture, created_at, version`
 
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+	hash, err := argon2id.CreateHash(password, argon2id.DefaultParams)
+	if err != nil {
+		return User{}, err
+	}
 
 	u := User{
 		Username:     username,
-		PasswordHash: passwordHash,
+		PasswordHash: []byte(hash),
 	}
 
-	args := []any{username, passwordHash}
-	err := m.pool.QueryRow(ctx, query, args...).Scan(
+	args := []any{u.Username, u.PasswordHash}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err = m.pool.QueryRow(ctx, query, args...).Scan(
 		&u.ID,
 		&u.GameTag,
 		&u.ProfilePicture,
@@ -103,7 +116,7 @@ func (m DBModel) CreateUser(ctx context.Context, username string, passwordHash [
 	return u, nil
 }
 
-func (m DBModel) GetUserByID(ctx context.Context, id int) (User, error) {
+func (m UserModel) GetByID(ctx context.Context, id int) (User, error) {
 	query := `
 		SELECT id, username, password_hash, game_tag, profile_picture, created_at, version
 		FROM users
@@ -124,13 +137,18 @@ func (m DBModel) GetUserByID(ctx context.Context, id int) (User, error) {
 	)
 
 	if err != nil {
-		return User{}, err
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return User{}, ErrNoRecord
+		default:
+			return User{}, err
+		}
 	}
 
 	return u, nil
 }
 
-func (m DBModel) GetUserByUsername(ctx context.Context, username string) (User, error) {
+func (m UserModel) GetByUsername(ctx context.Context, username string) (User, error) {
 	query := `
 		SELECT id, username, password_hash, game_tag, profile_picture, created_at, version
 		FROM users
@@ -151,13 +169,18 @@ func (m DBModel) GetUserByUsername(ctx context.Context, username string) (User, 
 	)
 
 	if err != nil {
-		return User{}, err
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return User{}, ErrNoRecord
+		default:
+			return User{}, err
+		}
 	}
 
 	return u, nil
 }
 
-func (m DBModel) UpdateUser(ctx context.Context, user *User) error {
+func (m UserModel) Update(ctx context.Context, user *User) error {
 	query := `
 		UPDATE users
 		SET username = $1, password_hash = $2, game_tag = $3, profile_picture = $4, version = version + 1
@@ -173,10 +196,15 @@ func (m DBModel) UpdateUser(ctx context.Context, user *User) error {
 		&user.Version,
 	)
 
-	return err
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return ErrEditConflict
+	default:
+		return err
+	}
 }
 
-func (m DBModel) DeleteUser(ctx context.Context, id int) error {
+func (m UserModel) Delete(ctx context.Context, id int) error {
 	query := `
 		DELETE FROM users
 		WHERE id = $1`
@@ -190,7 +218,7 @@ func (m DBModel) DeleteUser(ctx context.Context, id int) error {
 	}
 
 	if tag.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return ErrNoRecord
 	}
 
 	return nil

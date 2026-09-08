@@ -20,10 +20,12 @@ import (
 )
 
 func metrics(next http.Handler) http.Handler {
-	totalRequestsReceived := expvar.NewInt("total_requests_received")
-	totalResponsesSent := expvar.NewInt("total_responses_sent")
-	totalProcessingTimeMicroseconds := expvar.NewInt("total_processing_time_μs")
-	totalResponsesSentByStatus := expvar.NewMap("total_responses_sent_by_status")
+	var (
+		totalRequestsReceived           = expvar.NewInt("total_requests_received")
+		totalResponsesSent              = expvar.NewInt("total_responses_sent")
+		totalProcessingTimeMicroseconds = expvar.NewInt("total_processing_time_μs")
+		totalResponsesSentByStatus      = expvar.NewMap("total_responses_sent_by_status")
+	)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		totalRequestsReceived.Add(1)
@@ -166,7 +168,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		user, err := app.model.GetUserByID(r.Context(), int(userID))
+		user, err := app.models.Users.GetByID(r.Context(), int(userID))
 		if err != nil {
 			switch {
 			case errors.Is(err, pgx.ErrNoRows):

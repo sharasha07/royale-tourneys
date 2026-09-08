@@ -22,10 +22,10 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := app.model.GetUserByUsername(r.Context(), input.Username)
+	user, err := app.models.Users.GetByUsername(r.Context(), input.Username)
 	if err != nil {
 		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		case errors.Is(err, data.ErrNoRecord):
 			invalidCredentialsResponse(w)
 		default:
 			serverErrorResponse(w, err)
@@ -56,7 +56,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = app.model.AddRefreshToken(r.Context(), refreshToken, user.ID, app.cfg.JWT.RefreshTTL)
+	err = app.models.Tokens.Insert(r.Context(), refreshToken, user.ID, app.cfg.JWT.RefreshTTL)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return
@@ -90,7 +90,7 @@ func (app *application) refreshTokenHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	userID, err := app.model.GetRefreshTokenUserID(r.Context(), input.RefreshToken)
+	userID, err := app.models.Tokens.GetUserID(r.Context(), input.RefreshToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -101,7 +101,7 @@ func (app *application) refreshTokenHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = app.model.DeleteRefreshToken(r.Context(), input.RefreshToken)
+	err = app.models.Tokens.Delete(r.Context(), input.RefreshToken)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return
@@ -119,7 +119,7 @@ func (app *application) refreshTokenHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = app.model.AddRefreshToken(r.Context(), newRefreshToken, userID, app.cfg.JWT.RefreshTTL)
+	err = app.models.Tokens.Insert(r.Context(), newRefreshToken, userID, app.cfg.JWT.RefreshTTL)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return

@@ -52,7 +52,7 @@ type Config struct {
 
 type application struct {
 	cfg        Config
-	model      data.DBModel
+	models     data.Models
 	httpClient *http.Client
 	s3Client   *s3.Client
 }
@@ -83,7 +83,7 @@ func main() {
 
 	app := &application{
 		cfg:        cfg,
-		model:      data.NewDBModel(pool),
+		models:     data.NewDBModels(pool),
 		httpClient: httpClient,
 		s3Client:   s3Client,
 	}
