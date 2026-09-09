@@ -12,7 +12,7 @@ run/api:
 ## db/psql: connect to the database using psql
 .PHONY: db/psql
 db/psql:
-	dotenvx run -- sh -c 'psql $${POSTGRES_URL}'
+	dotenvx run -- sh -c 'psql $${DB_DSN}'
 
 ## db/migrate/create name=$1: create a new database migration
 .PHONY: db/migrate/create

@@ -4,29 +4,44 @@ import (
 	"context"
 	"time"
 
+	"github.com/alexedwards/argon2id"
 	"github.com/sharasha07/royale-tourneys/internal/data"
 )
 
-var mockUser = data.User{
-	ID:        1,
-	Username:  "shaba",
-	CreatedAt: time.Date(2003, time.July, 1, 22, 0, 0, 0, time.UTC),
-	Version:   2,
+var mockUsers = []data.User{
+	data.User{
+		ID:        1,
+		Username:  "shaba",
+		CreatedAt: time.Date(2003, time.July, 1, 22, 0, 0, 0, time.UTC),
+		Version:   2,
+	},
 }
 
 type UserModel struct{}
 
 func (m UserModel) Insert(ctx context.Context, username, password string) (data.User, error) {
-	return data.User{}, nil
+	hash, err := argon2id.CreateHash(password, argon2id.DefaultParams)
+	if err != nil {
+		return data.User{}, err
+	}
+
+	u := data.User{
+		ID:             len(mockUsers),
+		Username:       username,
+		PasswordHash:   []byte(hash),
+		GameTag:        nil,
+		ProfilePicture: nil,
+		CreatedAt:      time.Date(2010, time.July, 1, 22, 0, 0, 0, time.UTC),
+		Version:        1,
+	}
+
+	mockUsers = append(mockUsers, u)
+
+	return u, nil
 }
 
 func (m UserModel) GetByID(ctx context.Context, id int) (data.User, error) {
-	switch id {
-	case 1:
-		return mockUser, nil
-	default:
-		return data.User{}, data.ErrNoRecord
-	}
+	return data.User{}, data.ErrNoRecord
 }
 
 func (m UserModel) GetByUsername(ctx context.Context, username string) (data.User, error) {
