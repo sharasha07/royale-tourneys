@@ -31,7 +31,6 @@ type TokenModelInterface interface {
 	Insert(ctx context.Context, token string, userID int, ttl time.Duration) error
 	GetUserID(ctx context.Context, token string) (int, error)
 	Delete(ctx context.Context, token string) error
-	DeleteAllForUser(ctx context.Context, userID int) error
 }
 
 func NewDBModels(pool *pgxpool.Pool) Models {

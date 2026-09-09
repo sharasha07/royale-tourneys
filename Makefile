@@ -22,7 +22,7 @@ db/migrate/create:
 ## db/migrate/up: apply all up database migrations
 .PHONY: db/migrate/up
 db/migrate/up:
-	dotenvx run -- sh -c 'migrate -path=./migrations -database=$${POSTGRES_URL} up'
+	dotenvx run -- sh -c 'migrate -path=./migrations -database=$${DB_DSN} up'
 
 ## audit: tidy and vendor dependencies and format, vet and test all code
 .PHONY: audit

@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pascaldekloe/jwt"
 )
@@ -16,12 +18,21 @@ type TokenModel struct {
 	pool *pgxpool.Pool
 }
 
-func NewJWTToken(userID int, jwtSecret string, ttl time.Duration) (string, error) {
+type Token struct {
+	TokenHash []byte
+	UserID    int
+	ExpiresAt time.Time
+	CreatedAt time.Time
+}
+
+func NewAccessToken(userID int, jwtSecret string, ttl time.Duration) (string, error) {
+	now := time.Now()
+
 	claims := jwt.Claims{
 		Subject:   strconv.FormatInt(int64(userID), 10),
-		Issued:    jwt.NewNumericTime(time.Now()),
-		NotBefore: jwt.NewNumericTime(time.Now()),
-		Expires:   jwt.NewNumericTime(time.Now().Add(ttl)),
+		Issued:    jwt.NewNumericTime(now),
+		NotBefore: jwt.NewNumericTime(now),
+		Expires:   jwt.NewNumericTime(now.Add(ttl)),
 		Issuer:    "github.com/sharasha07/royale-tourneys",
 		Audiences: []string{"github.com/sharasha07/royale-tourneys"},
 	}
@@ -75,7 +86,12 @@ func (m TokenModel) GetUserID(ctx context.Context, token string) (int, error) {
 	var userID int
 	err := m.pool.QueryRow(ctx, query, tokenHash(token)).Scan(&userID)
 	if err != nil {
-		return 0, err
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return 0, ErrNoRecord
+		default:
+			return 0, err
+		}
 	}
 
 	return userID, nil
@@ -88,15 +104,5 @@ func (m TokenModel) Delete(ctx context.Context, token string) error {
 	defer cancel()
 
 	_, err := m.pool.Exec(ctx, query, tokenHash(token))
-	return err
-}
-
-func (m TokenModel) DeleteAllForUser(ctx context.Context, userID int) error {
-	query := `DELETE FROM refresh_tokens WHERE user_id = $1`
-
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	_, err := m.pool.Exec(ctx, query, userID)
 	return err
 }

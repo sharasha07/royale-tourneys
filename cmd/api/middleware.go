@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/felixge/httpsnoop"
-	"github.com/jackc/pgx/v5"
 	"github.com/pascaldekloe/jwt"
 	"github.com/sharasha07/royale-tourneys/internal/data"
 	"golang.org/x/time/rate"
@@ -171,7 +170,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 		user, err := app.models.Users.GetByID(r.Context(), int(userID))
 		if err != nil {
 			switch {
-			case errors.Is(err, pgx.ErrNoRows):
+			case errors.Is(err, data.ErrNoRecord):
 				invalidAuthenticationTokenResponse(w)
 			default:
 				serverErrorResponse(w, err)

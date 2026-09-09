@@ -10,7 +10,6 @@ import (
 
 	"github.com/sharasha07/royale-tourneys/internal/assert"
 	"github.com/sharasha07/royale-tourneys/internal/data"
-	"github.com/sharasha07/royale-tourneys/internal/data/mocks"
 )
 
 func TestCreateUserHandler(t *testing.T) {
@@ -115,12 +114,7 @@ func TestCreateUserHandler(t *testing.T) {
 		},
 	}
 
-	app := &application{
-		models: data.Models{
-			Users:  mocks.UserModel{},
-			Tokens: mocks.TokenModel{},
-		},
-	}
+	app := newTestApplication()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -135,7 +129,9 @@ func TestCreateUserHandler(t *testing.T) {
 			assert.Equal(t, tt.wantCode, resp.StatusCode)
 			assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 
-			tt.checkBody(t, resp)
+			if tt.checkBody != nil {
+				tt.checkBody(t, resp)
+			}
 		})
 	}
 }
@@ -227,26 +223,29 @@ func TestShowUserHandler(t *testing.T) {
 		},
 	}
 
-	app := &application{
-		models: data.Models{
-			Users:  mocks.UserModel{},
-			Tokens: mocks.TokenModel{},
-		},
-	}
+	app := newTestApplication()
 
 	for _, tt := range tests {
-		req := httptest.NewRequest(http.MethodGet, "/v1/users/"+tt.id, nil)
-		rr := httptest.NewRecorder()
-		req.SetPathValue("id", tt.id)
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/v1/users/"+tt.id, nil)
+			rr := httptest.NewRecorder()
+			req.SetPathValue("id", tt.id)
 
-		app.showUserHandler(rr, req)
+			app.showUserHandler(rr, req)
 
-		resp := rr.Result()
-		defer resp.Body.Close()
+			resp := rr.Result()
+			defer resp.Body.Close()
 
-		assert.Equal(t, tt.wantCode, resp.StatusCode)
-		assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+			assert.Equal(t, tt.wantCode, resp.StatusCode)
+			assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 
-		tt.checkBody(t, resp)
+			if tt.checkBody != nil {
+				tt.checkBody(t, resp)
+			}
+		})
 	}
+}
+
+func TestUpdateUserHandler(t *testing.T) {
+
 }

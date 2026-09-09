@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/alexedwards/argon2id"
-	"github.com/jackc/pgx/v5"
 	"github.com/sharasha07/royale-tourneys/internal/data"
 	"github.com/sharasha07/royale-tourneys/internal/validator"
 )
@@ -44,7 +43,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jwtToken, err := data.NewJWTToken(user.ID, app.cfg.JWT.Secret, app.cfg.JWT.AccessTTL)
+	jwtToken, err := data.NewAccessToken(user.ID, app.cfg.JWT.Secret, app.cfg.JWT.AccessTTL)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return
@@ -83,8 +82,8 @@ func (app *application) refreshTokenHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	v := validator.New()
 	if input.RefreshToken == "" {
+		v := validator.New()
 		v.Add("refresh_token", "must be provided")
 		failedValidationResponse(w, v.Errors)
 		return
@@ -93,11 +92,42 @@ func (app *application) refreshTokenHandler(w http.ResponseWriter, r *http.Reque
 	userID, err := app.models.Tokens.GetUserID(r.Context(), input.RefreshToken)
 	if err != nil {
 		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		case errors.Is(err, data.ErrNoRecord):
 			invalidAuthenticationTokenResponse(w)
 		default:
 			serverErrorResponse(w, err)
 		}
+		return
+	}
+
+	newAccessToken, err := data.NewAccessToken(userID, app.cfg.JWT.Secret, app.cfg.JWT.AccessTTL)
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+
+	err = writeJSON(w, http.StatusOK, envelope{"access_token": newAccessToken})
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+}
+
+func (app *application) logoutHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	err := readJSON(w, r, &input)
+	if err != nil {
+		badRequestResponse(w, err)
+		return
+	}
+
+	if input.RefreshToken == "" {
+		v := validator.New()
+		v.Add("refresh_token", "must be provided")
+		failedValidationResponse(w, v.Errors)
 		return
 	}
 
@@ -107,30 +137,5 @@ func (app *application) refreshTokenHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	newAccessToken, err := data.NewJWTToken(userID, app.cfg.JWT.Secret, app.cfg.JWT.AccessTTL)
-	if err != nil {
-		serverErrorResponse(w, err)
-		return
-	}
-
-	newRefreshToken, err := data.NewRefreshToken()
-	if err != nil {
-		serverErrorResponse(w, err)
-		return
-	}
-
-	err = app.models.Tokens.Insert(r.Context(), newRefreshToken, userID, app.cfg.JWT.RefreshTTL)
-	if err != nil {
-		serverErrorResponse(w, err)
-		return
-	}
-
-	err = writeJSON(w, http.StatusOK, envelope{
-		"access_token":  newAccessToken,
-		"refresh_token": newRefreshToken,
-	})
-	if err != nil {
-		serverErrorResponse(w, err)
-		return
-	}
+	w.WriteHeader(http.StatusNoContent)
 }
