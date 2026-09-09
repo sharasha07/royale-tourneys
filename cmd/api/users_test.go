@@ -139,3 +139,114 @@ func TestCreateUserHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestShowUserHandler(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        string
+		wantCode  int
+		checkBody func(t *testing.T, resp *http.Response)
+	}{
+		{
+			name:     "SUCCESS",
+			id:       "1",
+			wantCode: http.StatusOK,
+			checkBody: func(t *testing.T, resp *http.Response) {
+				t.Helper()
+
+				var result struct {
+					User data.User `json:"user"`
+				}
+
+				err := json.NewDecoder(resp.Body).Decode(&result)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				assert.Equal(t, 1, result.User.ID)
+				assert.Equal(t, "shaba", result.User.Username)
+				assert.Equal(t, 2, result.User.Version)
+			},
+		},
+		{
+			name:     "Decimal ID",
+			id:       "1.5",
+			wantCode: http.StatusNotFound,
+			checkBody: func(t *testing.T, resp *http.Response) {
+				t.Helper()
+
+				var result struct {
+					Error string `json:"error"`
+				}
+
+				err := json.NewDecoder(resp.Body).Decode(&result)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				assert.Equal(t, "resource not found", result.Error)
+			},
+		},
+		{
+			name:     "Negative ID",
+			id:       "-10",
+			wantCode: http.StatusNotFound,
+			checkBody: func(t *testing.T, resp *http.Response) {
+				t.Helper()
+
+				var result struct {
+					Error string `json:"error"`
+				}
+
+				err := json.NewDecoder(resp.Body).Decode(&result)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				assert.Equal(t, "resource not found", result.Error)
+			},
+		},
+		{
+			name:     "Non-existent ID",
+			id:       "15",
+			wantCode: http.StatusNotFound,
+			checkBody: func(t *testing.T, resp *http.Response) {
+				t.Helper()
+
+				var result struct {
+					Error string `json:"error"`
+				}
+
+				err := json.NewDecoder(resp.Body).Decode(&result)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				assert.Equal(t, "resource not found", result.Error)
+			},
+		},
+	}
+
+	app := &application{
+		models: data.Models{
+			Users:  mocks.UserModel{},
+			Tokens: mocks.TokenModel{},
+		},
+	}
+
+	for _, tt := range tests {
+		req := httptest.NewRequest(http.MethodGet, "/v1/users/"+tt.id, nil)
+		rr := httptest.NewRecorder()
+		req.SetPathValue("id", tt.id)
+
+		app.showUserHandler(rr, req)
+
+		resp := rr.Result()
+		defer resp.Body.Close()
+
+		assert.Equal(t, tt.wantCode, resp.StatusCode)
+		assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+
+		tt.checkBody(t, resp)
+	}
+}

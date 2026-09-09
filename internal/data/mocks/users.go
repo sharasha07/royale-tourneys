@@ -46,7 +46,11 @@ func (m UserModel) Insert(ctx context.Context, username, password string) (data.
 }
 
 func (m UserModel) GetByID(ctx context.Context, id int) (data.User, error) {
-	return data.User{}, data.ErrNoRecord
+	if id <= 0 || id > len(mockUsers) {
+		return data.User{}, data.ErrNoRecord
+	}
+
+	return mockUsers[id-1], nil
 }
 
 func (m UserModel) GetByUsername(ctx context.Context, username string) (data.User, error) {
