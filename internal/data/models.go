@@ -9,8 +9,9 @@ import (
 )
 
 var (
-	ErrNoRecord     = errors.New("record not found")
-	ErrEditConflict = errors.New("edit conflict")
+	ErrNoRecord        = errors.New("record not found")
+	ErrEditConflict    = errors.New("edit conflict")
+	ErrUniqueViolation = errors.New("unique violation")
 )
 
 type Models struct {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/alexedwards/argon2id"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sharasha07/royale-tourneys/internal/validator"
 )
@@ -110,7 +111,13 @@ func (m UserModel) Insert(ctx context.Context, username, password string) (User,
 		&u.Version,
 	)
 	if err != nil {
-		return User{}, err
+		var pgErr *pgconn.PgError
+		switch {
+		case errors.As(err, &pgErr) && pgErr.Code == "23505":
+			return User{}, ErrUniqueViolation
+		default:
+			return User{}, err
+		}
 	}
 
 	return u, nil

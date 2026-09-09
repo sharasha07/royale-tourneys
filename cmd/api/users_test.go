@@ -22,7 +22,7 @@ func TestCreateUserHandler(t *testing.T) {
 	}{
 		{
 			name:     "Success",
-			input:    `{"username": "shaba", "password": "shaba123"}`,
+			input:    `{"username": "saba", "password": "saba123"}`,
 			wantCode: http.StatusCreated,
 			checkBody: func(t *testing.T, resp *http.Response) {
 				t.Helper()
@@ -35,8 +35,27 @@ func TestCreateUserHandler(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				assert.Equal(t, "shaba", result.User.Username)
-				assert.Equal(t, time.Date(2010, time.July, 1, 22, 0, 0, 0, time.UTC), result.User.CreatedAt)
+				assert.Equal(t, "saba", result.User.Username)
+				assert.Equal(t, time.Now().Year(), result.User.CreatedAt.Year())
+				assert.Equal(t, time.Now().Weekday(), result.User.CreatedAt.Weekday())
+			},
+		},
+		{
+			name:     "Username Unique Violation",
+			input:    `{"username": "shaba", "password": "shaba123"}`,
+			wantCode: http.StatusUnprocessableEntity,
+			checkBody: func(t *testing.T, resp *http.Response) {
+				t.Helper()
+				var result struct {
+					Error map[string]string `json:"error"`
+				}
+
+				err := json.NewDecoder(resp.Body).Decode(&result)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				assert.Equal(t, "must be unique", result.Error["username"])
 			},
 		},
 		{

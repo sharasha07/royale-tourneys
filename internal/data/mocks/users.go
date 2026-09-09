@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/alexedwards/argon2id"
@@ -12,7 +13,7 @@ var mockUsers = []data.User{
 	data.User{
 		ID:        1,
 		Username:  "shaba",
-		CreatedAt: time.Date(2003, time.July, 1, 22, 0, 0, 0, time.UTC),
+		CreatedAt: time.Now(),
 		Version:   2,
 	},
 }
@@ -31,8 +32,12 @@ func (m UserModel) Insert(ctx context.Context, username, password string) (data.
 		PasswordHash:   []byte(hash),
 		GameTag:        nil,
 		ProfilePicture: nil,
-		CreatedAt:      time.Date(2010, time.July, 1, 22, 0, 0, 0, time.UTC),
+		CreatedAt:      time.Now(),
 		Version:        1,
+	}
+
+	if slices.ContainsFunc(mockUsers, func(user data.User) bool { return user.Username == username }) {
+		return data.User{}, data.ErrUniqueViolation
 	}
 
 	mockUsers = append(mockUsers, u)

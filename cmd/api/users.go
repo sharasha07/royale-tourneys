@@ -39,9 +39,8 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 
 	user, err := app.models.Users.Insert(r.Context(), input.Username, input.Password)
 	if err != nil {
-		var pgErr *pgconn.PgError
 		switch {
-		case errors.As(err, &pgErr) && pgErr.Code == "23505":
+		case errors.Is(err, data.ErrUniqueViolation):
 			v.Add("username", "must be unique")
 			failedValidationResponse(w, v.Errors)
 		default:
