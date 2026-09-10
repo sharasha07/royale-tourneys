@@ -82,6 +82,7 @@ func TestLoginHandler(t *testing.T) {
 
 			app.loginHandler(rr, req)
 			resp := rr.Result()
+			defer resp.Body.Close()
 
 			assert.Equal(t, tt.wantCode, resp.StatusCode)
 			assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
@@ -165,6 +166,7 @@ func TestRefreshTokenHandler(t *testing.T) {
 			app.refreshTokenHandler(rr, req)
 
 			resp := rr.Result()
+			defer resp.Body.Close()
 
 			assert.Equal(t, tt.wantCode, resp.StatusCode)
 			assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
@@ -224,6 +226,7 @@ func TestLogoutHandler(t *testing.T) {
 			app.logoutHandler(rr, req)
 
 			resp := rr.Result()
+			defer resp.Body.Close()
 
 			assert.Equal(t, tt.wantCode, resp.StatusCode)
 
