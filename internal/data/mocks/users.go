@@ -24,8 +24,7 @@ func NewUserModel() *UserModel {
 			1: {
 				ID:           1,
 				Username:     "shaba",
-				PasswordHash: []byte(hash),
-				CreatedAt:    time.Now(),
+				PasswordHash: hash,
 				Version:      2,
 			},
 		},
@@ -48,7 +47,7 @@ func (m *UserModel) Insert(ctx context.Context, username, password string) (data
 	u := data.User{
 		ID:             m.nextID,
 		Username:       username,
-		PasswordHash:   []byte(hash),
+		PasswordHash:   hash,
 		GameTag:        nil,
 		ProfilePicture: nil,
 		CreatedAt:      time.Now(),
@@ -68,6 +67,10 @@ func (m *UserModel) GetByID(ctx context.Context, id int) (data.User, error) {
 	}
 
 	return user, nil
+}
+
+func (m *UserModel) GetAll(ctx context.Context, username, tag string, filters data.Filters) ([]data.User, data.Metadata, error) {
+	return nil, data.Metadata{}, nil
 }
 
 func (m *UserModel) GetByUsername(ctx context.Context, username string) (data.User, error) {

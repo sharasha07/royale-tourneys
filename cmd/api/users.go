@@ -3,16 +3,19 @@ package main
 import (
 	"errors"
 	"fmt"
+	"image"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"path"
+	"slices"
 	"strconv"
+	"time"
 
 	"github.com/alexedwards/argon2id"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/sharasha07/royale-tourneys/internal/data"
 	"github.com/sharasha07/royale-tourneys/internal/validator"
 )
@@ -56,6 +59,50 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+func (app *application) showUsersHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		username string
+		tag      string
+		data.Filters
+	}
+
+	qs := r.URL.Query()
+	v := validator.New()
+
+	input.username = readString(qs, "username", "")
+	input.tag = readString(qs, "tag", "")
+
+	page, err := readInt(qs, "page", 1)
+	if err != nil {
+		badRequestResponse(w, err)
+		return
+	}
+
+	pageSize, err := readInt(qs, "page_size", 20)
+	if err != nil {
+		badRequestResponse(w, err)
+		return
+	}
+
+	input.Filters.Page = page
+	input.Filters.PageSize = pageSize
+	input.Filters.Sort = readString(qs, "sort", "id")
+	input.Filters.SortSafeList = []string{"id", "-id", "username", "-username"}
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		failedValidationResponse(w, v.Errors)
+		return
+	}
+
+	users, metadata, err := app.models.Users.GetAll(r.Context(), input.username, input.tag, input.Filters)
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+
+	err = writeJSON(w, http.StatusOK, envelope{"metadata": metadata, "users": users})
+}
+
 func (app *application) showUserHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
@@ -96,7 +143,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	if id != user.ID {
-		notAuthorizedResponse(w)
+		forbiddenResponse(w)
 		return
 	}
 
@@ -108,6 +155,13 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 	err = readJSON(w, r, &input)
 	if err != nil {
 		badRequestResponse(w, err)
+		return
+	}
+
+	if input.Username == nil && input.Password == nil {
+		v := validator.New()
+		v.Add("fields", "at least one should be non-null")
+		failedValidationResponse(w, v.Errors)
 		return
 	}
 
@@ -129,23 +183,15 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		user.PasswordHash = []byte(hash)
-	}
-
-	if input.Username == nil && input.Password == nil {
-		v := validator.New()
-		v.Add("body", "must not be empty")
-		failedValidationResponse(w, v.Errors)
-		return
+		user.PasswordHash = hash
 	}
 
 	err = app.models.Users.Update(r.Context(), user)
 	if err != nil {
-		var pgErr *pgconn.PgError
 		switch {
 		case errors.Is(err, data.ErrEditConflict):
 			editConflictResponse(w)
-		case errors.As(err, &pgErr) && pgErr.Code == "23505":
+		case errors.Is(err, data.ErrUniqueViolation):
 			v.Add("username", "must be unique")
 			failedValidationResponse(w, v.Errors)
 		default:
@@ -176,7 +222,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	if id != user.ID {
-		notAuthorizedResponse(w)
+		forbiddenResponse(w)
 		return
 	}
 
@@ -191,7 +237,7 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	v := validator.New()
-	err = data.ValidateGameTag(v, input.GameTag, app.cfg.ClashAPIToken, app.httpClient)
+	err = data.ValidateGameTag(r.Context(), v, input.GameTag, app.cfg.ClashAPIToken, app.httpClient)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return
@@ -206,11 +252,10 @@ func (app *application) updateGameTagHandler(w http.ResponseWriter, r *http.Requ
 
 	err = app.models.Users.Update(r.Context(), user)
 	if err != nil {
-		var pgErr *pgconn.PgError
 		switch {
 		case errors.Is(err, data.ErrEditConflict):
 			editConflictResponse(w)
-		case errors.As(err, &pgErr) && pgErr.Code == "23505":
+		case errors.Is(err, data.ErrUniqueViolation):
 			v.Add("game_tag", "must be unique")
 			failedValidationResponse(w, v.Errors)
 		default:
@@ -241,48 +286,40 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 	}
 
 	if id != user.ID {
-		notAuthorizedResponse(w)
+		forbiddenResponse(w)
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20)
+	const maxRequestSize = 5 << 20
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	err = r.ParseMultipartForm(5 << 20)
+	err = r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
-		if mbErr, ok := errors.AsType[*http.MaxBytesError](err); ok {
-			log.Println("upload too large, limit:", mbErr.Limit)
-			fileTooLargeResponse(w)
-			return
-		}
-		badRequestResponse(w, err)
+		badRequestResponse(w, errors.New("malformed upload"))
 		return
 	}
 
 	file, _, err := r.FormFile("avatar")
 	if err != nil {
-		badRequestResponse(w, err)
+		switch {
+		case errors.Is(err, http.ErrMissingFile):
+			badRequestResponse(w, errors.New("avatar file is required"))
+		default:
+			badRequestResponse(w, errors.New("malformed upload"))
+		}
 		return
 	}
 	defer file.Close()
 
-	buf := make([]byte, 512)
-	n, err := file.Read(buf)
-	if err != nil && !errors.Is(err, io.EOF) {
-		serverErrorResponse(w, err)
+	_, format, err := image.DecodeConfig(file)
+	if err != nil {
+		badRequestResponse(w, errors.New("invalid image"))
 		return
 	}
-	contentType := http.DetectContentType(buf[:n])
 
-	var key string
-	switch contentType {
-	case "image/jpeg":
-		key = fmt.Sprintf("users/%d/profile_picture.jpg", id)
-	case "image/png":
-		key = fmt.Sprintf("users/%d/profile_picture.png", id)
-	case "image/webp":
-		key = fmt.Sprintf("users/%d/profile_picture.webp", id)
-	default:
-		badRequestResponse(w, errors.New("invalid Content-Type"))
+	supportedFormats := []string{"jpeg", "png", "webp"}
+	if !slices.Contains(supportedFormats, format) {
+		badRequestResponse(w, errors.New("unsupported image type"))
 		return
 	}
 
@@ -291,12 +328,22 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
+	key := fmt.Sprintf("users/%d/profile_picture", id)
+
+	endpoint, err := url.JoinPath(app.cfg.R2.PublicURL, key)
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+
+	endpoint += "?v=" + strconv.FormatInt(time.Now().UnixNano(), 10)
+
 	_, err = app.s3Client.PutObject(r.Context(),
 		&s3.PutObjectInput{
-			Bucket:       &app.cfg.R2.Bucket,
-			Key:          &key,
+			Bucket:       aws.String(app.cfg.R2.Bucket),
+			Key:          aws.String(key),
 			Body:         file,
-			ContentType:  &contentType,
+			ContentType:  aws.String("image/" + format),
 			CacheControl: aws.String("public, max-age=3600"),
 		},
 	)
@@ -305,7 +352,6 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	endpoint := path.Join(app.cfg.R2.PublicURL, key)
 	user.ProfilePicture = &endpoint
 
 	err = app.models.Users.Update(r.Context(), user)
@@ -316,7 +362,7 @@ func (app *application) updateProfilePictureHandler(w http.ResponseWriter, r *ht
 		})
 
 		if delErr != nil {
-			log.Println("failed to remove orphaned profile picture:", delErr)
+			log.Println("failed to remove orphaned profile picture: ", delErr)
 		}
 
 		switch {
@@ -350,7 +396,7 @@ func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	if id != user.ID {
-		notAuthorizedResponse(w)
+		forbiddenResponse(w)
 		return
 	}
 

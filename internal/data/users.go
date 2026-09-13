@@ -25,7 +25,7 @@ type UserModel struct {
 type User struct {
 	ID             int       `json:"id"`
 	Username       string    `json:"username"`
-	PasswordHash   []byte    `json:"-"`
+	PasswordHash   string    `json:"-"`
 	GameTag        *string   `json:"game_tag"`
 	ProfilePicture *string   `json:"profile_picture"`
 	CreatedAt      time.Time `json:"created_at"`
@@ -49,14 +49,14 @@ func ValidateUser(v *validator.Validator, username, password *string) {
 	}
 }
 
-func ValidateGameTag(v *validator.Validator, gameTag, token string, client *http.Client) error {
+func ValidateGameTag(ctx context.Context, v *validator.Validator, gameTag, token string, client *http.Client) error {
 	if gameTag == "" {
 		v.Add("game_tag", "must be provided")
 		return nil
 	}
 
 	endpoint := fmt.Sprintf("https://api.clashroyale.com/v1/players/%s", url.PathEscape(gameTag))
-	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (m UserModel) Insert(ctx context.Context, username, password string) (User,
 
 	u := User{
 		Username:     username,
-		PasswordHash: []byte(hash),
+		PasswordHash: hash,
 	}
 
 	args := []any{u.Username, u.PasswordHash}
@@ -121,6 +121,51 @@ func (m UserModel) Insert(ctx context.Context, username, password string) (User,
 	}
 
 	return u, nil
+}
+
+func (m UserModel) GetAll(ctx context.Context, username, tag string, filters Filters) ([]User, Metadata, error) {
+	query := fmt.Sprintf(
+		`SELECT id, username, game_tag, profile_picture, created_at, version
+		FROM users
+		WHERE (LOWER(username) = LOWER($1) OR $1 = '')
+		AND (LOWER(game_tag) = LOWER($2) OR $2 = '')
+		ORDER BY %s %s, id ASC
+		LIMIT $3 OFFSET $4`, filters.sortColumn(), filters.sortDirection())
+
+	args := []any{username, tag, filters.limit(), filters.offset()}
+	rows, err := m.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+	defer rows.Close()
+
+	var users []User
+
+	for rows.Next() {
+		var user User
+
+		err := rows.Scan(
+			&user.ID,
+			&user.Username,
+			&user.GameTag,
+			&user.ProfilePicture,
+			&user.CreatedAt,
+			&user.Version,
+		)
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+
+		users = append(users, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := calculateMetadata(len(users), filters.Page, filters.PageSize)
+
+	return users, metadata, nil
 }
 
 func (m UserModel) GetByID(ctx context.Context, id int) (User, error) {
@@ -203,12 +248,19 @@ func (m UserModel) Update(ctx context.Context, user *User) error {
 		&user.Version,
 	)
 
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		return ErrEditConflict
-	default:
-		return err
+	if err != nil {
+		var pgErr *pgconn.PgError
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return ErrEditConflict
+		case errors.As(err, &pgErr) && pgErr.Code == "23505":
+			return ErrUniqueViolation
+		default:
+			return err
+		}
 	}
+
+	return nil
 }
 
 func (m UserModel) Delete(ctx context.Context, id int) error {

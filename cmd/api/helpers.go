@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -75,4 +77,29 @@ func writeJSON(w http.ResponseWriter, status int, env envelope) error {
 	_, err = w.Write(data)
 
 	return err
+}
+
+func readString(qs url.Values, key, defaultValue string) string {
+	s := qs.Get(key)
+
+	if s == "" {
+		return defaultValue
+	}
+
+	return s
+}
+
+func readInt(qs url.Values, key string, defaultValue int) (int, error) {
+	s := qs.Get(key)
+
+	if s == "" {
+		return defaultValue, nil
+	}
+
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be an integer", key)
+	}
+
+	return n, nil
 }

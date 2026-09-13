@@ -12,6 +12,7 @@ func (app *application) routes() http.Handler {
 	mux.Handle("GET /debug/vars", expvar.Handler())
 
 	mux.HandleFunc("POST /v1/users", app.createUserHandler)
+	mux.HandleFunc("GET /v1/users", app.showUsersHandler)
 	mux.HandleFunc("GET /v1/users/{id}", app.showUserHandler)
 	mux.HandleFunc("PATCH /v1/users/{id}", app.updateUserHandler)
 	mux.HandleFunc("PUT /v1/users/{id}/tag", app.updateGameTagHandler)

@@ -21,6 +21,7 @@ type Models struct {
 
 type UserModelInterface interface {
 	Insert(ctx context.Context, username, password string) (User, error)
+	GetAll(ctx context.Context, username, tag string, filters Filters) ([]User, Metadata, error)
 	GetByID(ctx context.Context, id int) (User, error)
 	GetByUsername(ctx context.Context, username string) (User, error)
 	Update(ctx context.Context, user *User) error

@@ -53,16 +53,11 @@ func invalidAuthenticationTokenResponse(w http.ResponseWriter) {
 }
 
 func authenticationRequiredResponse(w http.ResponseWriter) {
-	message := "authorization required to access this endpoint"
+	message := "authentication required to access this endpoint"
 	sendError(w, http.StatusUnauthorized, message)
 }
 
-func notAuthorizedResponse(w http.ResponseWriter) {
+func forbiddenResponse(w http.ResponseWriter) {
 	message := "user is not permitted to access this resource"
 	sendError(w, http.StatusForbidden, message)
-}
-
-func fileTooLargeResponse(w http.ResponseWriter) {
-	message := "file too large"
-	sendError(w, http.StatusRequestEntityTooLarge, message)
 }
