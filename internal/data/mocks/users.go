@@ -70,7 +70,14 @@ func (m *UserModel) GetByID(ctx context.Context, id int) (data.User, error) {
 }
 
 func (m *UserModel) GetAll(ctx context.Context, username, tag string, filters data.Filters) ([]data.User, data.Metadata, error) {
-	return nil, data.Metadata{}, nil
+	var users []data.User
+
+	for _, u := range m.users {
+		users = append(users, u)
+	}
+
+	metadata := data.CalculateMetadata(len(users), filters.Page, filters.PageSize)
+	return users, metadata, nil
 }
 
 func (m *UserModel) GetByUsername(ctx context.Context, username string) (data.User, error) {

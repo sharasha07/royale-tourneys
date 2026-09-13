@@ -163,7 +163,7 @@ func (m UserModel) GetAll(ctx context.Context, username, tag string, filters Fil
 		return nil, Metadata{}, err
 	}
 
-	metadata := calculateMetadata(len(users), filters.Page, filters.PageSize)
+	metadata := CalculateMetadata(len(users), filters.Page, filters.PageSize)
 
 	return users, metadata, nil
 }

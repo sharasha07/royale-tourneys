@@ -142,6 +142,57 @@ func TestCreateUserHandler(t *testing.T) {
 	}
 }
 
+func TestShowUsersHandler(t *testing.T) {
+	tests := []struct {
+		name      string
+		path      string
+		wantCode  int
+		checkBody func(t *testing.T, resp *http.Response)
+	}{
+		{
+			name:     "Default query parameters",
+			path:     "/v1/users",
+			wantCode: http.StatusOK,
+			checkBody: func(t *testing.T, resp *http.Response) {
+				var result struct {
+					Metadata data.Metadata `json:"metadata"`
+					Users    []data.User   `json:"users"`
+				}
+
+				err := json.NewDecoder(resp.Body).Decode(&result)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				assert.Equal(t, 1, result.Metadata.CurrentPage)
+				assert.Equal(t, 20, result.Metadata.PageSize)
+				assert.Equal(t, 1, result.Metadata.FirstPage)
+				assert.Equal(t, 1, result.Users[0].ID)
+				assert.Equal(t, "shaba", result.Users[0].Username)
+			},
+		},
+	}
+
+	app := newTestApplication()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			rr := httptest.NewRecorder()
+
+			app.showUsersHandler(rr, req)
+
+			resp := rr.Result()
+
+			assert.Equal(t, tt.wantCode, resp.StatusCode)
+			assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+			if tt.checkBody != nil {
+				tt.checkBody(t, resp)
+			}
+		})
+	}
+}
+
 func TestShowUserHandler(t *testing.T) {
 	tests := []struct {
 		name      string
