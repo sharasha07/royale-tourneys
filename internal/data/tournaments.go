@@ -119,3 +119,76 @@ func (m TournamentModel) GetByID(ctx context.Context, id int) (Tournament, error
 
 	return tournament, nil
 }
+
+func (m TournamentModel) GetByUserID(ctx context.Context, userID int) ([]Tournament, error) {
+	query := `
+		SELECT id, name, description, max_players, created_at, version
+		FROM tournaments
+		WHERE user_id = $1`
+
+	var tournaments []Tournament
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	rows, err := m.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		tournament := Tournament{UserID: userID}
+
+		err := rows.Scan(
+			&tournament.ID,
+			&tournament.Name,
+			&tournament.Description,
+			&tournament.MaxPlayers,
+			&tournament.CreatedAt,
+			&tournament.Version,
+		)
+		if err != nil {
+			switch {
+			case errors.Is(err, pgx.ErrNoRows):
+				return nil, ErrNoRecord
+			default:
+				return nil, err
+			}
+		}
+
+		tournaments = append(tournaments, tournament)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tournaments, nil
+}
+
+func (m TournamentModel) Update(ctx context.Context, tournament *Tournament) error {
+	query := `
+		UPDATE tournaments
+		SET name = $1, description = $2, password_hash = $3, max_players = $4, version = version + 1
+		WHERE id = $5 and version = $6
+		RETURNING version`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	args := []any{tournament.Name, tournament.Description, tournament.PasswordHash, tournament.MaxPlayers, tournament.ID, tournament.Version}
+	err := m.pool.QueryRow(ctx, query, args...).Scan(
+		&tournament.Version,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+
+	return nil
+}
