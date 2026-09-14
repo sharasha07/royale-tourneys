@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/sharasha07/royale-tourneys/internal/data"
 	"github.com/sharasha07/royale-tourneys/internal/validator"
@@ -9,6 +11,10 @@ import (
 
 func (app *application) createTournamentHandler(w http.ResponseWriter, r *http.Request) {
 	user := contextGetUser(r)
+	if user.IsAnonymous() {
+		authenticationRequiredResponse(w)
+		return
+	}
 
 	var input struct {
 		Name        string  `json:"name"`
@@ -38,6 +44,31 @@ func (app *application) createTournamentHandler(w http.ResponseWriter, r *http.R
 	}
 
 	err = writeJSON(w, http.StatusCreated, envelope{"tournament": tournament})
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+}
+
+func (app *application) showTournamentHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		notFoundResponse(w)
+		return
+	}
+
+	tournament, err := app.models.Tournaments.GetByID(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrNoRecord):
+			notFoundResponse(w)
+		default:
+			serverErrorResponse(w, err)
+		}
+		return
+	}
+
+	err = writeJSON(w, http.StatusOK, envelope{"tournament": tournament})
 	if err != nil {
 		serverErrorResponse(w, err)
 		return

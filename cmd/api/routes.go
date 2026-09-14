@@ -12,6 +12,7 @@ func (app *application) routes() http.Handler {
 	mux.Handle("GET /debug/vars", expvar.Handler())
 
 	mux.HandleFunc("POST /v1/tournaments", app.createTournamentHandler)
+	mux.HandleFunc("GET /v1/tournaments/{id}", app.showTournamentHandler)
 
 	mux.HandleFunc("POST /v1/users", app.createUserHandler)
 	mux.HandleFunc("GET /v1/users", app.showUsersHandler)

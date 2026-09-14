@@ -2,12 +2,14 @@ package data
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
 	"unicode/utf8"
 
 	"github.com/alexedwards/argon2id"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sharasha07/royale-tourneys/internal/validator"
 )
@@ -84,4 +86,36 @@ func (m TournamentModel) Insert(ctx context.Context, name string, description, p
 	}
 
 	return t, nil
+}
+
+func (m TournamentModel) GetByID(ctx context.Context, id int) (Tournament, error) {
+	query := `
+		SELECT id, name, description, max_players, user_id, created_at, version
+		FROM tournaments
+		WHERE id = $1`
+
+	var tournament Tournament
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err := m.pool.QueryRow(ctx, query, id).Scan(
+		&tournament.ID,
+		&tournament.Name,
+		&tournament.Description,
+		&tournament.MaxPlayers,
+		&tournament.UserID,
+		&tournament.CreatedAt,
+		&tournament.Version,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return Tournament{}, ErrNoRecord
+		default:
+			return Tournament{}, err
+		}
+	}
+
+	return tournament, nil
 }

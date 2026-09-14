@@ -101,6 +101,10 @@ func (app *application) showUsersHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	err = writeJSON(w, http.StatusOK, envelope{"metadata": metadata, "users": users})
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
 }
 
 func (app *application) showUserHandler(w http.ResponseWriter, r *http.Request) {
