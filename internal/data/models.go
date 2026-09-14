@@ -15,8 +15,9 @@ var (
 )
 
 type Models struct {
-	Users  UserModelInterface
-	Tokens TokenModelInterface
+	Users       UserModelInterface
+	Tokens      TokenModelInterface
+	Tournaments TournamentModelInterface
 }
 
 type UserModelInterface interface {
@@ -34,9 +35,14 @@ type TokenModelInterface interface {
 	Delete(ctx context.Context, token string) error
 }
 
+type TournamentModelInterface interface {
+	Insert(ctx context.Context, name string, description, password *string, maxPlayers int, userID int) (Tournament, error)
+}
+
 func NewDBModels(pool *pgxpool.Pool) Models {
 	return Models{
-		Users:  UserModel{pool: pool},
-		Tokens: TokenModel{pool: pool},
+		Users:       UserModel{pool: pool},
+		Tokens:      TokenModel{pool: pool},
+		Tournaments: TournamentModel{pool: pool},
 	}
 }

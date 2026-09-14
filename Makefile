@@ -24,6 +24,11 @@ db/migrate/create:
 db/migrate/up:
 	dotenvx run -- sh -c 'migrate -path=./migrations -database=$${DB_DSN} up'
 
+## db/migrate/down: resolve all up database migrations
+.PHONY: db/migrate/down
+db/migrate/down:
+	dotenvx run -- sh -c 'migrate -path=./migrations -database=$${DB_DSN} down'
+
 ## audit: tidy and vendor dependencies and format, vet and test all code
 .PHONY: audit
 audit:
