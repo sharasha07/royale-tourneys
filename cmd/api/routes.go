@@ -17,6 +17,9 @@ func (app *application) routes() http.Handler {
 	mux.HandleFunc("PATCH /v1/tournaments/{id}", app.updateTournamentHandler)
 	mux.HandleFunc("DELETE /v1/tournaments/{id}", app.deleteTournamentHandler)
 
+	mux.HandleFunc("POST /v1/tournaments/{id}/users", app.joinTournamentHandler)
+	mux.HandleFunc("DELETE /v1/tournaments/{id}/users", app.leaveTournamentHandler)
+
 	mux.HandleFunc("POST /v1/users", app.createUserHandler)
 	mux.HandleFunc("GET /v1/users", app.showUsersHandler)
 	mux.HandleFunc("GET /v1/users/{id}", app.showUserHandler)

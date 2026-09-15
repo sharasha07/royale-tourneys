@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
@@ -253,6 +254,64 @@ func (app *application) deleteTournamentHandler(w http.ResponseWriter, r *http.R
 	err = app.models.Tournaments.Delete(r.Context(), id)
 	if err != nil {
 		serverErrorResponse(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (app *application) joinTournamentHandler(w http.ResponseWriter, r *http.Request) {
+	tournamentID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		notFoundResponse(w)
+		return
+	}
+
+	user := contextGetUser(r)
+	if user.IsAnonymous() {
+		authenticationRequiredResponse(w)
+		return
+	}
+
+	err = app.models.Tournaments.AddUser(r.Context(), tournamentID, user.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrTournamentFull):
+			badRequestResponse(w, err)
+		case errors.Is(err, data.ErrForeignKeyViolation), errors.Is(err, data.ErrNoRecord):
+			badRequestResponse(w, fmt.Errorf("tournament with id: %d does not exist", tournamentID))
+		case errors.Is(err, data.ErrUniqueViolation):
+			badRequestResponse(w, fmt.Errorf("already joined tournament with id: %d", tournamentID))
+		default:
+			serverErrorResponse(w, err)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (app *application) leaveTournamentHandler(w http.ResponseWriter, r *http.Request) {
+	tournamentID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		badRequestResponse(w, err)
+		return
+	}
+
+	user := contextGetUser(r)
+	if user.IsAnonymous() {
+		authenticationRequiredResponse(w)
+		return
+	}
+
+	err = app.models.Tournaments.RemoveUser(r.Context(), tournamentID, user.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrNoRecord):
+			notFoundResponse(w)
+		default:
+			serverErrorResponse(w, err)
+		}
 		return
 	}
 

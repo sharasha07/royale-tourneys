@@ -10,6 +10,7 @@ import (
 
 	"github.com/alexedwards/argon2id"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sharasha07/royale-tourneys/internal/validator"
 )
@@ -249,4 +250,69 @@ func (m TournamentModel) Delete(ctx context.Context, id int) error {
 	_, err := m.pool.Exec(ctx, query, id)
 
 	return err
+}
+
+func (m TournamentModel) AddUser(ctx context.Context, tourID, userID int) error {
+	tx, err := m.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var maxPlayers int
+	err = tx.QueryRow(ctx, `SELECT max_players FROM tournaments WHERE id = $1 FOR UPDATE`, tourID).Scan(&maxPlayers)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return ErrNoRecord
+		default:
+			return err
+		}
+	}
+
+	var count int
+	err = tx.QueryRow(ctx, `SELECT COUNT(*) FROM tournaments_users WHERE tournament_id = $1`, tourID).Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	if count >= maxPlayers {
+		return ErrTournamentFull
+	}
+
+	_, err = tx.Exec(ctx, `INSERT INTO tournaments_users (tournament_id, user_id)
+		VALUES ($1, $2)`, tourID, userID)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		switch {
+		case errors.As(err, &pgErr) && pgErr.Code == "23505":
+			return ErrUniqueViolation
+		case errors.As(err, &pgErr) && pgErr.Code == "23503":
+			return ErrForeignKeyViolation
+		default:
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (m TournamentModel) RemoveUser(ctx context.Context, tour_id, user_id int) error {
+	query := `
+		DELETE FROM tournaments_users
+		WHERE tournament_id = $1 AND user_id = $2`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	result, err := m.pool.Exec(ctx, query, tour_id, user_id)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return ErrNoRecord
+	}
+
+	return nil
 }

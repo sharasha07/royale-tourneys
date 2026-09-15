@@ -9,9 +9,11 @@ import (
 )
 
 var (
-	ErrNoRecord        = errors.New("record not found")
-	ErrEditConflict    = errors.New("edit conflict")
-	ErrUniqueViolation = errors.New("unique violation")
+	ErrNoRecord            = errors.New("record not found")
+	ErrEditConflict        = errors.New("edit conflict")
+	ErrUniqueViolation     = errors.New("unique violation")
+	ErrForeignKeyViolation = errors.New("foreign key violation")
+	ErrTournamentFull      = errors.New("tournament is full")
 )
 
 type Models struct {
@@ -42,6 +44,8 @@ type TournamentModelInterface interface {
 	GetByUserID(ctx context.Context, userID int) ([]Tournament, error)
 	Update(ctx context.Context, tournament *Tournament) error
 	Delete(ctx context.Context, id int) error
+	AddUser(ctx context.Context, tour_id, user_id int) error
+	RemoveUser(ctx context.Context, tour_id, user_id int) error
 }
 
 func NewDBModels(pool *pgxpool.Pool) Models {
