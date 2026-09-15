@@ -54,20 +54,20 @@ func (app *application) createTournamentHandler(w http.ResponseWriter, r *http.R
 
 func (app *application) showTournamentsHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		id   int
-		name string
+		userID int
+		name   string
 		data.Filters
 	}
 
 	qs := r.URL.Query()
 	v := validator.New()
 
-	n, err := readInt(qs, "id", 0)
+	n, err := readInt(qs, "userID", 0)
 	if err != nil {
 		badRequestResponse(w, err)
 		return
 	}
-	input.id = n
+	input.userID = n
 	input.name = readString(qs, "name", "")
 
 	page, err := readInt(qs, "page", 1)
@@ -92,7 +92,7 @@ func (app *application) showTournamentsHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	tournaments, metadata, err := app.models.Tournaments.GetAll(r.Context(), input.id, input.name, input.Filters)
+	tournaments, metadata, err := app.models.Tournaments.GetAll(r.Context(), input.userID, input.name, input.Filters)
 	if err != nil {
 		serverErrorResponse(w, err)
 		return

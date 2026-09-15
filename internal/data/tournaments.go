@@ -92,7 +92,7 @@ func (m TournamentModel) GetAll(ctx context.Context, id int, name string, filter
 	query := fmt.Sprintf(`
 		SELECT id, name, description, max_players, user_id, created_at, version
 		FROM tournaments
-		WHERE (id = $1 OR $1 = 0)
+		WHERE (user_id = $1 OR $1 = 0)
 		AND (LOWER(name) = LOWER($2) OR $2 = '')
 		ORDER BY %s %s, id ASC
 		LIMIT $3 OFFSET $4`, filters.sortColumn(), filters.sortDirection())
