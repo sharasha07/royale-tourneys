@@ -37,9 +37,11 @@ type TokenModelInterface interface {
 
 type TournamentModelInterface interface {
 	Insert(ctx context.Context, name string, description, password *string, maxPlayers int, userID int) (Tournament, error)
+	GetAll(ctx context.Context, id int, name string, filters Filters) ([]Tournament, Metadata, error)
 	GetByID(ctx context.Context, id int) (Tournament, error)
 	GetByUserID(ctx context.Context, userID int) ([]Tournament, error)
 	Update(ctx context.Context, tournament *Tournament) error
+	Delete(ctx context.Context, id int) error
 }
 
 func NewDBModels(pool *pgxpool.Pool) Models {

@@ -133,6 +133,10 @@ func (m UserModel) GetAll(ctx context.Context, username, tag string, filters Fil
 		LIMIT $3 OFFSET $4`, filters.sortColumn(), filters.sortDirection())
 
 	args := []any{username, tag, filters.limit(), filters.offset()}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	rows, err := m.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, Metadata{}, err

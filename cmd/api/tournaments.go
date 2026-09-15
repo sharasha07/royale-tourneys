@@ -52,6 +52,63 @@ func (app *application) createTournamentHandler(w http.ResponseWriter, r *http.R
 	}
 }
 
+func (app *application) showTournamentsHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		id   int
+		name string
+		data.Filters
+	}
+
+	qs := r.URL.Query()
+	v := validator.New()
+
+	n, err := readInt(qs, "id", 0)
+	if err != nil {
+		badRequestResponse(w, err)
+		return
+	}
+	input.id = n
+	input.name = readString(qs, "name", "")
+
+	page, err := readInt(qs, "page", 1)
+	if err != nil {
+		badRequestResponse(w, err)
+		return
+	}
+
+	page_size, err := readInt(qs, "page_size", 20)
+	if err != nil {
+		badRequestResponse(w, err)
+		return
+	}
+
+	input.Filters.Page = page
+	input.Filters.PageSize = page_size
+	input.Filters.Sort = readString(qs, "sort", "id")
+	input.Filters.SortSafeList = []string{"id", "-id", "name", "-name"}
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		failedValidationResponse(w, v.Errors)
+		return
+	}
+
+	tournaments, metadata, err := app.models.Tournaments.GetAll(r.Context(), input.id, input.name, input.Filters)
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+
+	err = writeJSON(w, http.StatusOK, envelope{
+		"metadata":    metadata,
+		"tournaments": tournaments,
+	})
+
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+}
+
 func (app *application) showTournamentHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -92,12 +149,7 @@ func (app *application) updateTournamentHandler(w http.ResponseWriter, r *http.R
 
 	tournaments, err := app.models.Tournaments.GetByUserID(r.Context(), user.ID)
 	if err != nil {
-		switch {
-		case errors.Is(err, data.ErrNoRecord):
-			notFoundResponse(w)
-		default:
-			serverErrorResponse(w, err)
-		}
+		serverErrorResponse(w, err)
 		return
 	}
 
@@ -170,4 +222,39 @@ func (app *application) updateTournamentHandler(w http.ResponseWriter, r *http.R
 		serverErrorResponse(w, err)
 		return
 	}
+}
+
+func (app *application) deleteTournamentHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		notFoundResponse(w)
+		return
+	}
+
+	user := contextGetUser(r)
+	if user.IsAnonymous() {
+		authenticationRequiredResponse(w)
+		return
+	}
+
+	tournaments, err := app.models.Tournaments.GetByUserID(r.Context(), user.ID)
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+
+	if !slices.ContainsFunc(tournaments, func(t data.Tournament) bool {
+		return t.ID == id
+	}) {
+		forbiddenResponse(w)
+		return
+	}
+
+	err = app.models.Tournaments.Delete(r.Context(), id)
+	if err != nil {
+		serverErrorResponse(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

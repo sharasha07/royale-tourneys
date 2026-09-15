@@ -88,6 +88,56 @@ func (m TournamentModel) Insert(ctx context.Context, name string, description, p
 	return t, nil
 }
 
+func (m TournamentModel) GetAll(ctx context.Context, id int, name string, filters Filters) ([]Tournament, Metadata, error) {
+	query := fmt.Sprintf(`
+		SELECT id, name, description, max_players, user_id, created_at, version
+		FROM tournaments
+		WHERE (id = $1 OR $1 = 0)
+		AND (LOWER(name) = LOWER($2) OR $2 = '')
+		ORDER BY %s %s, id ASC
+		LIMIT $3 OFFSET $4`, filters.sortColumn(), filters.sortDirection())
+
+	args := []any{id, name, filters.limit(), filters.offset()}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	rows, err := m.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+	defer rows.Close()
+
+	var tournaments []Tournament
+
+	for rows.Next() {
+		var tournament Tournament
+
+		err := rows.Scan(
+			&tournament.ID,
+			&tournament.Name,
+			&tournament.Description,
+			&tournament.MaxPlayers,
+			&tournament.UserID,
+			&tournament.CreatedAt,
+			&tournament.Version,
+		)
+
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+
+		tournaments = append(tournaments, tournament)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := CalculateMetadata(len(tournaments), filters.Page, filters.PageSize)
+
+	return tournaments, metadata, nil
+}
+
 func (m TournamentModel) GetByID(ctx context.Context, id int) (Tournament, error) {
 	query := `
 		SELECT id, name, description, max_players, user_id, created_at, version
@@ -149,12 +199,7 @@ func (m TournamentModel) GetByUserID(ctx context.Context, userID int) ([]Tournam
 			&tournament.Version,
 		)
 		if err != nil {
-			switch {
-			case errors.Is(err, pgx.ErrNoRows):
-				return nil, ErrNoRecord
-			default:
-				return nil, err
-			}
+			return nil, err
 		}
 
 		tournaments = append(tournaments, tournament)
@@ -191,4 +236,17 @@ func (m TournamentModel) Update(ctx context.Context, tournament *Tournament) err
 	}
 
 	return nil
+}
+
+func (m TournamentModel) Delete(ctx context.Context, id int) error {
+	query := `
+		DELETE FROM tournaments
+		WHERE id = $1`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := m.pool.Exec(ctx, query, id)
+
+	return err
 }
